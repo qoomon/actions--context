@@ -10,10 +10,6 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: '${{ github.token }}'
-  stringInput:
-    description: 'An arbitrary string'
-  yamlInput:
-    description: 'An arbitrary yaml object'
 
 outputs:
   stringOutput:
