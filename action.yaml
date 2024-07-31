@@ -10,14 +10,43 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: '${{ github.token }}'
-  stringInput:
-    description: 'An arbitrary string'
-  yamlInput:
-    description: 'An arbitrary yaml object'
+  matrix-json:
+    description: 'DO NOT SET MANUALLY - Current matrix properties'
+    default: '${{ toJSON(matrix) }}'
 
 outputs:
-  stringOutput:
-    description: 'An arbitrary string'
+  job:
+    description: |
+      The workflow jobs.<job_id> of the current job.
+      Same as `github.job`.
+  job_id:
+    description: The workflow run job id of the current job.
+  job_log_url:
+    description: The HTML url of the job log for the current job.
+  job_matrix:
+    description: The artificial matrix workflow jobs.<job_id> of the current job.
+  run_id:
+    description: |
+      The workflow run id of the current job.
+      Same as `github.run_id`.
+  run_attempt:
+    description: |
+      The workflow run attempt of the current job.
+      Same as `github.run_attempt`.
+  run_number:
+    description: |
+      The workflow run number of the current job.
+      Same as `github.run_number`.
+  environment:
+    description: The environment of the current job.
+  environment_url:
+    description: The HTML url of the environment of the current job.
+  deployment_url:
+    description: The HTML url of the deployment of the current job.
+  deployment_workflow_url:
+    description: The HTML url of the deployment workflow of the current job.
+  deployment_log_url:
+    description: The HTML url of the deployment log of the current job.
 
 runs:
   using: 'node20'

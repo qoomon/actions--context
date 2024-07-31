@@ -1,48 +1,230 @@
+/* eslint-disable camelcase */
 import * as core from '@actions/core'
+import {getInput} from '@actions/core'
 import * as github from '@actions/github'
-import {HttpClient} from '@actions/http-client'
-import {exec, getInput, getYamlInput, run} from './lib/actions.js'
+// eslint-disable-next-line node/no-unpublished-import
+import {Deployment} from '@octokit/graphql-schema'
+import {run} from './lib/actions.js'
 // see https://github.com/actions/toolkit for more github actions libraries
-import {z} from 'zod'
 import {fileURLToPath} from 'url'
+import * as process from 'node:process'
+
+const context = github.context
+const enhancedContext = {
+  repository: `${context.repo.owner}/${context.repo.repo}`,
+  runAttempt: parseInt(process.env.GITHUB_RUN_ATTEMPT!, 10),
+  runnerName: process.env.RUNNER_NAME,
+}
 
 export const action = () => run(async () => {
-  const context = github.context
   const inputs = {
     token: getInput('token', {required: true})!,
-    string: getInput('stringInput'),
-    yaml: z.optional(z.array(z.string())).default([])
-        .parse(getYamlInput('yamlInput')),
+    matrix: getInput('matrix-json') ?
+        JSON.parse(getInput('matrix-json')) :
+        undefined,
   }
+
   const octokit = github.getOctokit(inputs.token)
 
-  await octokit.rest.issues.create({
-    owner: context.repo.owner,
-    repo: context.repo.repo,
-    title: 'New issue',
-    body: 'This is a new issue',
+  const currentJob = await getCurrentJob(octokit, {
+    repo: context.repo,
+    runId: context.runId,
+    runAttempt: enhancedContext.runAttempt,
+    job: context.job,
+    matrix: inputs.matrix,
   })
 
-  const httpClient = new HttpClient()
-  httpClient.get('https://api.github.com').then((response) => {
-    core.info(`HTTP response: ${response.message.statusCode}`)
+  const currentDeployment = await getCurrentDeployment(octokit, {
+    serverUrl: context.serverUrl,
+    repo: context.repo,
+    sha: context.sha,
+    runId: context.runId,
+    runJobId: currentJob.id,
   })
 
-  const result = await exec('echo', ['Hello world!'])
-      .then(({stdout}) => stdout.toString())
+  // --- github-context
+  // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/contexts#github-context
 
-  // core.setSecret(value) will mask the value in logs
-  core.setSecret('secretXXX')
-  core.info(result)
+  // github.job
+  core.info(`steps.context.outputs.job: ${currentJob.name}`)
+  core.setOutput('job', currentJob.name)
 
-  core.startGroup('Group title')
-  core.info(result)
-  core.endGroup()
+  core.info(`steps.context.outputs.job_id: ${currentJob.id}`)
+  core.setOutput('job_id', currentJob.id)
 
-  // core.setFailed('This is a failure')
-  // core.setOutput(key,value) will set the value of an output
-  core.setOutput('stringOutput', result)
+  core.info(`steps.context.outputs.job_log_url: ${currentJob.html_url}`)
+  core.setOutput('job_log_url', currentJob.html_url)
+
+  // github.run_id
+  core.info(`steps.context.outputs.run_id: ${currentJob.run_id}`)
+  core.setOutput('run_id', currentJob.run_id)
+
+  // github.run_attempt
+  core.info(`steps.context.outputs.run_attempt: ${currentJob.run_attempt}`)
+  core.setOutput('run_attempt', currentJob.run_attempt)
+
+  // github.run_number
+  core.info(`steps.context.outputs.run_number: ${context.runNumber}`)
+  core.setOutput('run_number', context.runNumber)
+
+  core.info(`steps.context.outputs.environment: ${currentDeployment?.environment}`)
+  core.setOutput('environment', currentDeployment?.environment)
+
+  core.info(`steps.context.outputs.environment_url: ${currentDeployment?.environmentUrl}`)
+  core.setOutput('environment_url', currentDeployment?.environmentUrl)
+
+  core.info(`steps.context.outputs.deployment_url: ${currentDeployment?.url}`)
+  core.setOutput('deployment_url', currentDeployment?.url)
+
+  core.info(`steps.context.outputs.deployment_workflow_url: ${currentDeployment?.workflowUrl}`)
+  core.setOutput('deployment_workflow_url', currentDeployment?.workflowUrl)
+
+  core.info(`steps.context.outputs.deployment_log_url: ${currentDeployment?.logUrl}`)
+  core.setOutput('deployment_log_url', currentDeployment?.logUrl)
 })
+
+/**
+ * Get the current job from the workflow run
+ * @param octokit - octokit instance
+ * @param context - github context
+ * @returns the current job
+ */
+async function getCurrentJob(octokit: ReturnType<typeof github.getOctokit>, context: {
+  repo: { owner: string; repo: string };
+  runId: number;
+  runAttempt: number;
+  job: string;
+  matrix?: Record<string, string>;
+}) {
+  const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
+    ...context.repo,
+    run_id: context.runId,
+    attempt_number: context.runAttempt,
+  })
+
+  let effectiveJobName = context.job
+  if (context.matrix) {
+    effectiveJobName = effectiveJobName + ` (${flatValues(context.matrix).join(', ')})`
+  }
+  // currently (Aug 2024) it is not possible to reconstruct job name for reusable workflows
+  const potentialCurrentJobs = workflowRunJobs.filter((job) => {
+    return (job.name === effectiveJobName || job.name.endsWith(' / ' + effectiveJobName)) &&
+        // to improve accuracy and workaround the issue with reusable workflows check runner name as well
+        // runner name is not unique by design, however works most of the time
+        enhancedContext.runnerName === job.runner_name
+  })
+
+  if (potentialCurrentJobs.length === 0) {
+    throw new Error(`Job ${effectiveJobName} not found in workflow run.\n` +
+        `Workflow jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`)
+  }
+  if (potentialCurrentJobs.length > 1) {
+    throw new Error(`Job ${effectiveJobName} could not be determined with certainty.\n` +
+        `Workflow jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`)
+  }
+
+  return potentialCurrentJobs[0]
+}
+
+/**
+ * Get the current deployment from the workflow run
+ * @param octokit - octokit instance
+ * @param context - github context
+ * @returns the current deployment or undefined
+ */
+async function getCurrentDeployment(octokit: ReturnType<typeof github.getOctokit>, context: {
+  serverUrl: string;
+  repo: { owner: string; repo: string };
+  sha: string;
+  runId: number;
+  runJobId: number;
+}) {
+  // --- get deployments for current sha
+  const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({
+    ...context.repo,
+    sha: context.sha,
+    task: 'deploy',
+    per_page: 100,
+  }).then(({data: deployments}) => deployments
+      .filter((deployment) => deployment.performed_via_github_app?.slug === 'github-actions'))
+
+
+  // --- get deployment workflow job run id
+  // noinspection GraphQLUnresolvedReference
+  const potentialDeploymentsFromGrapqlApi = await octokit.graphql<{ nodes: Deployment[] }>(`
+    query ($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on Deployment {
+          commitOid
+          createdAt
+          task
+          state
+          latestEnvironment
+          latestStatus {
+            logUrl
+            environmentUrl
+          }
+        }
+      }
+    }`, {
+    ids: potentialDeploymentsFromRestApi.map(({node_id}) => node_id),
+  }).then(({nodes: deployments}) => deployments
+      // filter is probably not needed due to check log url to match run id and job id
+      .filter((deployment) => deployment.commitOid === context.sha)
+      .filter((deployment) => deployment.task === 'deploy')
+      .filter((deployment) => deployment.state === 'IN_PROGRESS'))
+
+  const currentDeployment = potentialDeploymentsFromGrapqlApi.find((deployment) => {
+    if (!deployment.latestStatus?.logUrl) return false
+    const logUrl = new URL(deployment.latestStatus.logUrl)
+
+    if (logUrl.origin !== context.serverUrl) return false
+
+    const pathnameMatch = logUrl.pathname
+        .match(/\/(?<repository>[^/]+\/[^/]+)\/actions\/runs\/(?<run_id>[^/]+)\/job\/(?<run_job_id>[^/]+)/)
+
+    return pathnameMatch &&
+        pathnameMatch.groups?.repository === `${context.repo.owner}/${context.repo.repo}` &&
+        pathnameMatch.groups?.run_id === context.runId.toString() &&
+        pathnameMatch.groups?.run_job_id === context.runJobId.toString()
+  })
+
+  if (!currentDeployment) return undefined
+
+  const currentDeploymentUrl =
+      // eslint-disable-next-line max-len
+      `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`
+  const currentDeploymentWorkflowUrl =
+      `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+
+  return {
+    ...currentDeployment,
+    latestEnvironment: undefined,
+    latestStatus: undefined,
+    url: currentDeploymentUrl,
+    workflowUrl: currentDeploymentWorkflowUrl,
+    logUrl: currentDeployment.latestStatus!.logUrl as string,
+    environment: currentDeployment.latestEnvironment,
+    environmentUrl: currentDeployment.latestStatus!.environmentUrl as (string | null),
+  }
+}
+
+/**
+ * Flatten objects and arrays to all its values including nested objects and arrays
+ * @param values - value(s)
+ * @returns flattened values
+ */
+function flatValues(values: unknown): unknown[] {
+  if (typeof values !== 'object' || values == null) {
+    return [values]
+  }
+
+  if (Array.isArray(values)) {
+    return values.flatMap(flatValues)
+  }
+
+  return flatValues(Object.values(values))
+}
 
 // Execute the action, if running as main module
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

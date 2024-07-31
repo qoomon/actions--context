@@ -1,0 +1,95 @@
+name: Example Action
+
+on:
+  push:
+    branches: ['**']
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
+  build-with-environment:
+    runs-on: ubuntu-latest
+    environment: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+  build-with-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22.x, 20.x]
+        chrome-version: [latest, stable]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
+  build-with-matrix-nested-objects:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-16.04, ubuntu-latest ]
+        compiler: [ { cpp: g++, c: gcc }, { cpp: g++-8, c: gcc-8 } ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
+  build-with-matrix-nested-arrays:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-16.04, ubuntu-latest ]
+        compiler: [ [g++, gcc ], [g++-8, gcc-8 ] ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
+  build-with-matrix-include:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - cpp_compiler: g++
+            c_compiler: gcc,
+          - cpp_compiler: g++-8
+            c_compiler: gcc-8
+          - cpp_compiler: clang++
+            c_compiler: clang
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
+  build-with-reusable-workflow:
+    permissions:
+      id-token: write
+      contents: read
+    uses: ./.github/workflows/~reusable-example.yml
+

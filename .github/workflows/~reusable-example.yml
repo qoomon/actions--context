@@ -1,0 +1,11 @@
+name: ~Reusable Example
+on:
+  workflow_call:
+
+jobs:
+  build-reusable:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
