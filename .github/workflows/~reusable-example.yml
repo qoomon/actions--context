@@ -2,8 +2,13 @@ name: ~Reusable Example
 on:
   workflow_call:
 
+permissions:
+  contents: read
+  actions: read
+  deployments: read
+
 jobs:
-  build-reusable:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

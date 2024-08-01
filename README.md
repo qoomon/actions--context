@@ -1,4 +1,4 @@
-# GitHub Action Context
+# Enhanced GitHub Action Context
 This action provides enhanced context information for GitHub Actions jobs.
 
 ### Usage
@@ -7,6 +7,10 @@ jobs:
   example:
     runs-on: ubuntu-latest
     environment: playground
+    permissions:
+      actions:     read  # required for qoomon/actions--context action
+      deployments: read  # required for qoomon/actions--context action
+      contents: read
     steps:
       - uses: qoomon/actions--context@v1
         id: context
@@ -18,38 +22,34 @@ jobs:
 
 ### Outputs
 ```yaml
-job:
-  description: |
-    The workflow jobs.<job_id> of the current job.
-    Same as `github.job`.
-job_id:
-  description: The workflow run job id of the current job.
-job_log_url:
-  description: The HTML url of the job log for the current job.
-job_matrix:
-  description: The artificial matrix workflow jobs.<job_id> of the current job.
-run_id:
-  description: |
-    The workflow run id of the current job.
-    Same as `github.run_id`.
-run_attempt:
-  description: |
-    The workflow run attempt of the current job.
-    Same as `github.run_attempt`.
-run_number:
-  description: |
-    The workflow run number of the current job.
-    Same as `github.run_number`.
-environment:
-  description: The environment of the current job.
-environment_url:
-  description: The HTML url of the environment of the current job.
-deployment_url:
-  description: The HTML url of the deployment of the current job.
-deployment_workflow_url:
-  description: The HTML url of the deployment workflow of the current job.
-deployment_log_url:
-  description: The HTML url of the deployment log of the current job.
+outputs:
+  job:
+    description: The workflow job name of the current job.
+  job_id:
+    description: The workflow run job id of the current job.
+  job_log_url:
+    description: The HTML url of the job log for the current job.
+
+  run_id:
+    description: The workflow run id of the current job.
+  run_attempt:
+    description: The workflow run attempt of the current job.
+  run_number:
+    description: The workflow run number of the current job. Same as `github.run_number`.
+
+  environment:
+    description: The environment of the current job.
+  environment_url:
+    description: The environment HTML url of the current job.
+
+  deployment_id:
+    description: The deployment id of the current job.
+  deployment_url:
+    description: The deployment HTML url of the current job.
+  deployment_workflow_url:
+    description: The deployment workflow HTML url of the current job.
+  deployment_log_url:
+    description: The deployment log HTML url of the current job.
 ```
 
 #### Release New Action Version
