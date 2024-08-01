@@ -11,9 +11,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: qoomon/actions--access-token@v3
+        id: access-token
+        with:
+          permissions: |
+              actions: read
+              deployments: read
+
       - uses: actions/checkout@v4
 
       - uses: ./
+        with: 
+          token: ${{ steps.access-token.outputs.token }}
 
       - run: |
           echo github.job: ${{ github.job }}
