@@ -23,3 +23,12 @@ export function run(action: () => Promise<void>): void {
     core.setFailed(failedMessage)
   })
 }
+
+/**
+ * Sleep for a number of milliseconds
+ * @param milliseconds - number of milliseconds to sleep
+ * @returns void
+ */
+export async function sleep(milliseconds: number) {
+  await new Promise((resolve) => setTimeout(resolve, milliseconds))
+}

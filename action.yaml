@@ -10,21 +10,18 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: '${{ github.token }}'
-  matrix-json:
+  __matrix:
     description: 'DO NOT SET MANUALLY - Current matrix properties'
     default: '${{ toJSON(matrix) }}'
 
 outputs:
   job:
-    description: |
-      The workflow jobs.<job_id> of the current job.
-      Same as `github.job`.
+    description: The workflow job name of the current job.
   job_id:
     description: The workflow run job id of the current job.
   job_log_url:
     description: The HTML url of the job log for the current job.
-  job_matrix:
-    description: The artificial matrix workflow jobs.<job_id> of the current job.
+
   run_id:
     description: |
       The workflow run id of the current job.
@@ -37,10 +34,13 @@ outputs:
     description: |
       The workflow run number of the current job.
       Same as `github.run_number`.
+
+
   environment:
     description: The environment of the current job.
   environment_url:
     description: The HTML url of the environment of the current job.
+
   deployment_url:
     description: The HTML url of the deployment of the current job.
   deployment_workflow_url:

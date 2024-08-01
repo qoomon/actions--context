@@ -30970,6 +30970,14 @@ function run(action) {
         core.setFailed(failedMessage);
     });
 }
+/**
+ * Sleep for a number of milliseconds
+ * @param milliseconds - number of milliseconds to sleep
+ * @returns void
+ */
+async function sleep(milliseconds) {
+    await new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 // EXTERNAL MODULE: external "url"
 var external_url_ = __nccwpck_require__(7310);
@@ -30984,43 +30992,28 @@ const external_node_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(i
 // see https://github.com/actions/toolkit for more github actions libraries
 
 
-const context = github.context;
-const enhancedContext = {
-    repository: `${context.repo.owner}/${context.repo.repo}`,
-    runAttempt: parseInt(external_node_process_namespaceObject.env.GITHUB_RUN_ATTEMPT, 10),
-    runnerName: external_node_process_namespaceObject.env.RUNNER_NAME,
-};
 const action = () => run(async () => {
+    const context = github.context;
+    const enhancedContext = {
+        repository: `${context.repo.owner}/${context.repo.repo}`,
+        runAttempt: parseInt(external_node_process_namespaceObject.env.GITHUB_RUN_ATTEMPT, 10),
+        runnerName: external_node_process_namespaceObject.env.RUNNER_NAME,
+    };
     const inputs = {
         token: (0,core.getInput)('token', { required: true }),
-        matrix: (0,core.getInput)('matrix-json') ?
-            JSON.parse((0,core.getInput)('matrix-json')) :
-            undefined,
+        matrix: (0,core.getInput)('__matrix') ? JSON.parse((0,core.getInput)('__matrix')) : undefined,
     };
     const octokit = github.getOctokit(inputs.token);
+    // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
+    await sleep(2000);
     const currentJob = await getCurrentJob(octokit, {
         repo: context.repo,
         runId: context.runId,
         runAttempt: enhancedContext.runAttempt,
+        runnerName: enhancedContext.runnerName,
         job: context.job,
         matrix: inputs.matrix,
     });
-    const currentDeployment = await getCurrentDeployment(octokit, {
-        serverUrl: context.serverUrl,
-        repo: context.repo,
-        sha: context.sha,
-        runId: context.runId,
-        runJobId: currentJob.id,
-    });
-    // --- github-context
-    // https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/contexts#github-context
-    // github.job
-    core.info(`steps.context.outputs.job: ${currentJob.name}`);
-    core.setOutput('job', currentJob.name);
-    core.info(`steps.context.outputs.job_id: ${currentJob.id}`);
-    core.setOutput('job_id', currentJob.id);
-    core.info(`steps.context.outputs.job_log_url: ${currentJob.html_url}`);
-    core.setOutput('job_log_url', currentJob.html_url);
     // github.run_id
     core.info(`steps.context.outputs.run_id: ${currentJob.run_id}`);
     core.setOutput('run_id', currentJob.run_id);
@@ -31030,6 +31023,19 @@ const action = () => run(async () => {
     // github.run_number
     core.info(`steps.context.outputs.run_number: ${context.runNumber}`);
     core.setOutput('run_number', context.runNumber);
+    core.info(`steps.context.outputs.job: ${currentJob.name}`);
+    core.setOutput('job', currentJob.name);
+    core.info(`steps.context.outputs.job_id: ${currentJob.id}`);
+    core.setOutput('job_id', currentJob.id);
+    core.info(`steps.context.outputs.job_log_url: ${currentJob.html_url}`);
+    core.setOutput('job_log_url', currentJob.html_url);
+    const currentDeployment = await getCurrentDeployment(octokit, {
+        serverUrl: context.serverUrl,
+        repo: context.repo,
+        sha: context.sha,
+        runId: context.runId,
+        runJobId: currentJob.id,
+    });
     core.info(`steps.context.outputs.environment: ${currentDeployment?.environment}`);
     core.setOutput('environment', currentDeployment?.environment);
     core.info(`steps.context.outputs.environment_url: ${currentDeployment?.environmentUrl}`);
@@ -31057,20 +31063,25 @@ async function getCurrentJob(octokit, context) {
     if (context.matrix) {
         effectiveJobName = effectiveJobName + ` (${flatValues(context.matrix).join(', ')})`;
     }
-    // currently (Aug 2024) it is not possible to reconstruct job name for reusable workflows
+    // As of now (Aug 2024) it is not possible to reconstruct job name for reusable workflows,
+    // therefore we verify the runner name as well.
+    // Note: runner name is no unique identifier, however it decreases the probability of ambiguous job matches.
     const potentialCurrentJobs = workflowRunJobs.filter((job) => {
-        return (job.name === effectiveJobName || job.name.endsWith(' / ' + effectiveJobName)) &&
-            // to improve accuracy and workaround the issue with reusable workflows check runner name as well
-            // runner name is not unique by design, however works most of the time
-            enhancedContext.runnerName === job.runner_name;
+        const match = job.name === effectiveJobName || job.name.endsWith(' / ' + effectiveJobName);
+        if (!match)
+            return false;
+        if (job.runner_name === null) {
+            core.debug(`job.runner_name is null for job ${job.name}`);
+            return true;
+        }
+        return job.runner_name === context.runnerName;
     });
     if (potentialCurrentJobs.length === 0) {
-        throw new Error(`Job ${effectiveJobName} not found in workflow run.\n` +
-            `Workflow jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`);
+        throw new Error(`Job ${effectiveJobName} not found in workflow run.`);
     }
     if (potentialCurrentJobs.length > 1) {
         throw new Error(`Job ${effectiveJobName} could not be determined with certainty.\n` +
-            `Workflow jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`);
+            `Ambiguous jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`);
     }
     return potentialCurrentJobs[0];
 }
@@ -31095,6 +31106,7 @@ async function getCurrentDeployment(octokit, context) {
     query ($ids: [ID!]!) {
       nodes(ids: $ids) {
         ... on Deployment {
+          databaseId,
           commitOid
           createdAt
           task
@@ -31134,8 +31146,10 @@ async function getCurrentDeployment(octokit, context) {
     const currentDeploymentWorkflowUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
     return {
         ...currentDeployment,
+        databaseId: undefined,
         latestEnvironment: undefined,
         latestStatus: undefined,
+        id: currentDeployment.databaseId,
         url: currentDeploymentUrl,
         workflowUrl: currentDeploymentWorkflowUrl,
         logUrl: currentDeployment.latestStatus.logUrl,
