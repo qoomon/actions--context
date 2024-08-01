@@ -7,6 +7,10 @@ jobs:
   example:
     runs-on: ubuntu-latest
     environment: playground
+    permissions:
+      actions: read # required for qoomon/actions--context
+      deployments: read # required for qoomon/actions--context
+      contents: read
     steps:
       - uses: qoomon/actions--context@v1
         id: context
