@@ -65,7 +65,7 @@ export const action = () => run(async () => {
   })
 
   core.info(`steps.context.outputs.environment: ${currentDeployment?.environment}`)
-  core.setOutput('environment', currentDeployment?.environment)
+  core.setOutput('environment', currentDeployment?.environment || '')
 
   core.info(`steps.context.outputs.environment_url: ${currentDeployment?.environmentUrl}`)
   core.setOutput('environment_url', currentDeployment?.environmentUrl)
@@ -215,7 +215,7 @@ async function getCurrentDeployment(octokit: ReturnType<typeof github.getOctokit
     workflowUrl: currentDeploymentWorkflowUrl,
     logUrl: currentDeployment.latestStatus!.logUrl! as string,
     environment: currentDeployment.latestEnvironment!,
-    environmentUrl: currentDeployment.latestStatus!.environmentUrl! as string,
+    environmentUrl: currentDeployment.latestStatus!.environmentUrl as string || undefined,
   }
 }
 

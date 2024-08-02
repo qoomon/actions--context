@@ -31044,7 +31044,7 @@ const action = () => run(async () => {
         runJobId: currentJob.id,
     });
     core.info(`steps.context.outputs.environment: ${currentDeployment?.environment}`);
-    core.setOutput('environment', currentDeployment?.environment);
+    core.setOutput('environment', currentDeployment?.environment || '');
     core.info(`steps.context.outputs.environment_url: ${currentDeployment?.environmentUrl}`);
     core.setOutput('environment_url', currentDeployment?.environmentUrl);
     core.info(`steps.context.outputs.deployment_id: ${currentDeployment?.id}`);
@@ -31163,7 +31163,7 @@ async function getCurrentDeployment(octokit, context) {
         workflowUrl: currentDeploymentWorkflowUrl,
         logUrl: currentDeployment.latestStatus.logUrl,
         environment: currentDeployment.latestEnvironment,
-        environmentUrl: currentDeployment.latestStatus.environmentUrl,
+        environmentUrl: currentDeployment.latestStatus.environmentUrl || undefined,
     };
 }
 /**
