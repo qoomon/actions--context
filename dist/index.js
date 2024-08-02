@@ -31163,7 +31163,7 @@ async function getCurrentDeployment(octokit, context) {
         workflowUrl: currentDeploymentWorkflowUrl,
         logUrl: currentDeployment.latestStatus.logUrl,
         environment: currentDeployment.latestEnvironment,
-        environmentUrl: currentDeployment.latestStatus.environmentUrl,
+        environmentUrl: currentDeployment.latestStatus.environmentUrl || undefined,
     };
 }
 /**

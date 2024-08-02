@@ -215,7 +215,7 @@ async function getCurrentDeployment(octokit: ReturnType<typeof github.getOctokit
     workflowUrl: currentDeploymentWorkflowUrl,
     logUrl: currentDeployment.latestStatus!.logUrl! as string,
     environment: currentDeployment.latestEnvironment!,
-    environmentUrl: currentDeployment.latestStatus!.environmentUrl! as string,
+    environmentUrl: currentDeployment.latestStatus!.environmentUrl as string || undefined,
   }
 }
 
