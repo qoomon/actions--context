@@ -31021,21 +31021,12 @@ const action = () => run(async () => {
         job: context.job,
         matrix: inputs.matrix,
     });
-    // github.run_id
-    core.info(`steps.context.outputs.run_id: ${currentJob.run_id}`);
-    core.setOutput('run_id', currentJob.run_id);
-    // github.run_attempt
-    core.info(`steps.context.outputs.run_attempt: ${currentJob.run_attempt}`);
-    core.setOutput('run_attempt', currentJob.run_attempt);
-    // github.run_number
-    core.info(`steps.context.outputs.run_number: ${context.runNumber}`);
-    core.setOutput('run_number', context.runNumber);
-    core.info(`steps.context.outputs.job: ${currentJob.name}`);
-    core.setOutput('job', currentJob.name);
-    core.info(`steps.context.outputs.job_id: ${currentJob.id}`);
-    core.setOutput('job_id', currentJob.id);
-    core.info(`steps.context.outputs.job_log_url: ${currentJob.html_url}`);
-    core.setOutput('job_log_url', currentJob.html_url);
+    setContextOutput('run_id', currentJob.run_id);
+    setContextOutput('run_attempt', currentJob.run_attempt);
+    setContextOutput('run_number', context.runNumber);
+    setContextOutput('job', currentJob.name);
+    setContextOutput('job_id', currentJob.id);
+    setContextOutput('job_log_url', currentJob.html_url);
     const currentDeployment = await getCurrentDeployment(octokit, {
         serverUrl: context.serverUrl,
         repo: context.repo,
@@ -31043,19 +31034,27 @@ const action = () => run(async () => {
         runId: context.runId,
         runJobId: currentJob.id,
     });
-    core.info(`steps.context.outputs.environment: ${currentDeployment?.environment}`);
-    core.setOutput('environment', currentDeployment?.environment);
-    core.info(`steps.context.outputs.environment_url: ${currentDeployment?.environmentUrl}`);
-    core.setOutput('environment_url', currentDeployment?.environmentUrl);
-    core.info(`steps.context.outputs.deployment_id: ${currentDeployment?.id}`);
-    core.setOutput('deployment_id', currentDeployment?.id);
-    core.info(`steps.context.outputs.deployment_url: ${currentDeployment?.url}`);
-    core.setOutput('deployment_url', currentDeployment?.url);
-    core.info(`steps.context.outputs.deployment_workflow_url: ${currentDeployment?.workflowUrl}`);
-    core.setOutput('deployment_workflow_url', currentDeployment?.workflowUrl);
-    core.info(`steps.context.outputs.deployment_log_url: ${currentDeployment?.logUrl}`);
-    core.setOutput('deployment_log_url', currentDeployment?.logUrl);
+    if (currentDeployment) {
+        setContextOutput('environment', currentDeployment.environment);
+        setContextOutput('environment_url', currentDeployment.environmentUrl);
+        setContextOutput('deployment_id', currentDeployment.id);
+        setContextOutput('deployment_url', currentDeployment.url);
+        setContextOutput('deployment_workflow_url', currentDeployment.workflowUrl);
+        setContextOutput('deployment_log_url', currentDeployment.logUrl);
+    }
 });
+/**
+ * Set context output
+ * @param name - output name
+ * @param value - output value
+ * @returns void
+ */
+function setContextOutput(name, value) {
+    if (value !== undefined) {
+        core.info(`${name}: ${value}`);
+    }
+    core.setOutput(name, value);
+}
 /**
  * Get the current job from the workflow run
  * @param octokit - octokit instance
