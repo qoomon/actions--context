@@ -2,15 +2,12 @@ name: Example Action
 
 on:
   push:
-    branches: ['**']
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+    branches: ['main']
 
 permissions:
+  actions: read  # required for qoomon/actions--context action
+  deployments: read  # required for qoomon/actions--context action
   contents: read
-  actions: read
-  deployments: read
 
 jobs:
   build:
@@ -92,5 +89,15 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
-  build-with-reusable-workflow:
+  build-with-reusable-workflow-with-matrix:
+    strategy:
+      matrix:
+        node-version: [ 22.x, 20.x ]
+        chrome-version: [ latest, stable ]
     uses: ./.github/workflows/~reusable-example.yml
+    with:
+      # IMPORTANT job value needs to be set to the job name of the reusable workflow
+      # If the surrounding workflow is a reusable workflow itself,
+      #  add ${{ inputs.workflow-context }} as first line of 'workflow-context' value
+      workflow-context: |
+        { "job": "build-with-reusable-workflow-with-matrix", "matrix": ${{ toJSON(matrix) }} }
