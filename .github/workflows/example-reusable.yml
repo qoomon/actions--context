@@ -1,0 +1,21 @@
+name: ~Reusable Example
+on:
+  workflow_call:
+    inputs:
+      workflow-context:
+        type: string
+
+permissions:
+  actions: read  # required for qoomon/actions--context action
+  deployments: read  # required for qoomon/actions--context action
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./
+        with:
+          workflow-context: ${{ inputs.workflow-context }}

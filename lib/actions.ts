@@ -15,12 +15,17 @@ export const bot = {
  */
 export function run(action: () => Promise<void>): void {
   action().catch(async (error: unknown) => {
-    console.error('Error:', error)
     let failedMessage = 'Unhandled error, see job logs'
-    if (error != null && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-      failedMessage = error.message
+    if (error != null && typeof error === 'object' &&
+        'message' in error && error.message != null) {
+      failedMessage = error.message.toString()
     }
     core.setFailed(failedMessage)
+
+    if (error != null && typeof error === 'object' &&
+        'stack' in error) {
+      console.error(error.stack)
+    }
   })
 }
 

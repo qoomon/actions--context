@@ -52,6 +52,51 @@ outputs:
     description: The deployment log HTML url of the current job.
 ```
 
+### Usage within Reusable Workflows
+
+##### Main Workflow
+```yaml
+jobs:
+  reusable-job:
+    strategy:
+      matrix:
+        node-version: [ 22.x, 20.x ]
+        chrome-version: [ latest, stable ]
+    uses: ./.github/workflows/example-reusable.yml
+    with:
+      # IMPORTANT "job" value must match the surrounding job name
+      # IMPORTANT If the surrounding workflow is a reusable workflow itself,
+      #   add ${{ inputs.workflow-context }} as an additional line of input value
+      workflow-context: |
+        { "job": "build-with-reusable-workflow-with-matrix", "matrix": ${{ toJSON(matrix) }} }
+```
+
+##### Reusable workflow
+```yaml
+on:
+  workflow_call:
+    inputs:
+      workflow-context:
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read  # required for qoomon/actions--context action
+      deployments: read  # required for qoomon/actions--context action
+      contents: read
+    steps:
+      - uses: qoomon/actions--context@v1
+        id: context
+        with:
+          workflow-context: ${{ inputs.workflow-context }}
+
+      - run: |
+          echo "Current Environment: ${{ steps.context.outputs.environment }}"
+          echo "Job Logs: ${{ steps.context.outputs.job_log_url }}"
+```
+
 #### Release New Action Version
 - Trigger the [Release workflow](../../actions/workflows/release.yaml)
   - The workflow will create a new release with the given version and also move the related major version tag e.g. `v1` to point to this new release
