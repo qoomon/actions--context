@@ -30969,12 +30969,16 @@ const bot = {
  */
 function run(action) {
     action().catch(async (error) => {
-        console.error('Error:', error);
         let failedMessage = 'Unhandled error, see job logs';
-        if (error != null && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
-            failedMessage = error.message;
+        if (error != null && typeof error === 'object' &&
+            'message' in error && error.message != null) {
+            failedMessage = error.message.toString();
         }
         core.setFailed(failedMessage);
+        if (error != null && typeof error === 'object' &&
+            'stack' in error) {
+            console.error(error.stack);
+        }
     });
 }
 /**
@@ -30996,7 +31000,7 @@ const external_node_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(i
 
 
 
-// see https://github.com/actions/toolkit for more github actions libraries
+// see https://github.com/actions/toolkit for more GitHub actions libraries
 
 
 const action = () => run(async () => {
@@ -31008,6 +31012,13 @@ const action = () => run(async () => {
     };
     const inputs = {
         token: (0,core.getInput)('token', { required: true }),
+        // TODO parse with zod
+        // As of now (Aug 2024) it is not possible to reconstruct the job name from within a reusable workflows,
+        // so we need to pass workflow context as an input variable see type WorkflowContext
+        workflowContext: (0,core.getInput)('workflow-context') ?
+            parseJsonObjects((0,core.getInput)('workflow-context')) :
+            undefined,
+        // TODO parse with zod
         matrix: (0,core.getInput)('__matrix') ? JSON.parse((0,core.getInput)('__matrix')) : undefined,
     };
     const octokit = github.getOctokit(inputs.token);
@@ -31018,6 +31029,7 @@ const action = () => run(async () => {
         runId: context.runId,
         runAttempt: enhancedContext.runAttempt,
         runnerName: enhancedContext.runnerName,
+        workflowContext: inputs.workflowContext,
         job: context.job,
         matrix: inputs.matrix,
     });
@@ -31043,6 +31055,10 @@ const action = () => run(async () => {
         setContextOutput('deployment_log_url', currentDeployment.logUrl);
     }
 });
+// Execute the action, if running as the main module
+if (external_node_process_namespaceObject.argv[1] === (0,external_url_.fileURLToPath)(import.meta.url)) {
+    action();
+}
 /**
  * Set context output
  * @param name - output name
@@ -31058,7 +31074,7 @@ function setContextOutput(name, value) {
 /**
  * Get the current job from the workflow run
  * @param octokit - octokit instance
- * @param context - github context
+ * @param context - GitHub context
  * @returns the current job
  */
 async function getCurrentJob(octokit, context) {
@@ -31066,37 +31082,23 @@ async function getCurrentJob(octokit, context) {
         ...context.repo,
         run_id: context.runId,
         attempt_number: context.runAttempt,
-    });
-    let effectiveJobName = context.job;
-    if (context.matrix) {
-        effectiveJobName = effectiveJobName + ` (${flatValues(context.matrix).join(', ')})`;
-    }
-    // As of now (Aug 2024) it is not possible to reconstruct job name for reusable workflows,
-    // therefore we verify the runner name as well.
-    // Note: runner name is no unique identifier, however it decreases the probability of ambiguous job matches.
-    const potentialCurrentJobs = workflowRunJobs.filter((job) => {
-        const match = job.name === effectiveJobName || job.name.endsWith(' / ' + effectiveJobName);
-        if (!match)
-            return false;
-        if (job.runner_name === null) {
-            core.debug(`job.runner_name is null for job ${job.name}`);
-            return true;
+    }).catch((error) => {
+        if (error.status === 403) {
+            throwPermissionError({ scope: 'actions', permission: 'read' }, error);
         }
-        return job.runner_name === context.runnerName;
+        throw error;
     });
-    if (potentialCurrentJobs.length === 0) {
-        throw new Error(`Job ${effectiveJobName} not found in workflow run.`);
+    const actualJobName = getActualJobName(context);
+    const currentJob = workflowRunJobs.find((job) => job.name === actualJobName);
+    if (!currentJob) {
+        throw new Error(`Current job '${actualJobName}' could not found in workflow run.`);
     }
-    if (potentialCurrentJobs.length > 1) {
-        throw new Error(`Job ${effectiveJobName} could not be determined with certainty.\n` +
-            `Ambiguous jobs: ${JSON.stringify(potentialCurrentJobs.map((job) => job.name), null, 2)}`);
-    }
-    return potentialCurrentJobs[0];
+    return currentJob;
 }
 /**
  * Get the current deployment from the workflow run
  * @param octokit - octokit instance
- * @param context - github context
+ * @param context - GitHub context
  * @returns the current deployment or undefined
  */
 async function getCurrentDeployment(octokit, context) {
@@ -31106,6 +31108,11 @@ async function getCurrentDeployment(octokit, context) {
         sha: context.sha,
         task: 'deploy',
         per_page: 100,
+    }).catch((error) => {
+        if (error.status === 403) {
+            throwPermissionError({ scope: 'deployments', permission: 'read' }, error);
+        }
+        throw error;
     }).then(({ data: deployments }) => deployments
         .filter((deployment) => deployment.performed_via_github_app?.slug === 'github-actions'));
     // --- get deployment workflow job run id
@@ -31166,6 +31173,33 @@ async function getCurrentDeployment(octokit, context) {
     };
 }
 /**
+ * Get the actual job name
+ * @param job - job name
+ * @param matrix - matrix properties
+ * @param contexts - workflow contexts
+ * @returns the actual job name
+ */
+function getActualJobName({ job, matrix, contexts }) {
+    let actualJobName = job;
+    if (matrix) {
+        actualJobName = `${actualJobName} (${flatValues(matrix).join(', ')})`;
+    }
+    contexts?.forEach((context) => {
+        const contextJob = getActualJobName(context);
+        actualJobName = `${contextJob} / ${actualJobName}`;
+    });
+    return actualJobName;
+}
+/**
+ * Parse JSON objects
+ * @param jsonObjects - JSON objects
+ * @returns parsed JSON objects
+ */
+function parseJsonObjects(jsonObjects) {
+    const jsonObjectArray = '[' + jsonObjects.replaceAll(/}\s*{/g, '},\n{') + ']';
+    return JSON.parse(jsonObjectArray);
+}
+/**
  * Flatten objects and arrays to all its values including nested objects and arrays
  * @param values - value(s)
  * @returns flattened values
@@ -31179,9 +31213,16 @@ function flatValues(values) {
     }
     return flatValues(Object.values(values));
 }
-// Execute the action, if running as main module
-if (external_node_process_namespaceObject.argv[1] === (0,external_url_.fileURLToPath)(import.meta.url)) {
-    action();
+/**
+ * Throw a permission error
+ * @param permission - GitHub Job permission
+ * @param options - error options
+ * @returns void
+ */
+function throwPermissionError(permission, options) {
+    throw new Error(`Ensure that GitHub job has \`permissions: ${permission.scope}: ${permission.permission}\`. ` +
+        // eslint-disable-next-line max-len
+        'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token', options);
 }
 
 })();
