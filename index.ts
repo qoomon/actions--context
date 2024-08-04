@@ -304,7 +304,12 @@ type WorkflowContext = z.infer<typeof WorkflowContextSchema>
 const WorkflowContextParser = z.string()
     .transform((str, ctx) => {
       try {
-        return JSON.parse(`[${str.replace(/,\s*$/g, '')}]`)
+        return JSON.parse(`[${str
+            // fix trailing comma
+            .replace(/,\s*$/g, '')
+            // fix missing values
+            .replace(/,(?=,)/, ',null')
+        }]`)
       } catch (error: unknown) {
         ctx.addIssue({code: 'custom', message: (error as { message?: string }).message})
         return z.NEVER
@@ -322,15 +327,12 @@ const WorkflowContextParser = z.string()
           })
           return z.NEVER
         }
-        const matrix = contextArray.shift()
-        if (matrix != null && typeof matrix !== 'object') {
-          ctx.addIssue({
-            code: 'custom',
-            message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
-          })
-          return z.NEVER
+        if (typeof contextArray[0] === 'object') {
+          const matrix = contextArray.shift()
+          context.push({job, matrix})
+        } else {
+          context.push({job})
         }
-        context.push({job, matrix})
       }
       return z.array(WorkflowContextSchema).parse(context)
     })

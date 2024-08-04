@@ -35483,7 +35483,11 @@ const WorkflowContextSchema = z.object({
 const WorkflowContextParser = z.string()
     .transform((str, ctx) => {
     try {
-        return JSON.parse(`[${str.replace(/,\s*$/g, '')}]`);
+        return JSON.parse(`[${str
+            // fix trailing comma
+            .replace(/,\s*$/g, '')
+            // fix missing values
+            .replace(/,(?=,)/, ',null')}]`);
     }
     catch (error) {
         ctx.addIssue({ code: 'custom', message: error.message });
@@ -35502,15 +35506,13 @@ const WorkflowContextParser = z.string()
             });
             return z.NEVER;
         }
-        const matrix = contextArray.shift();
-        if (matrix != null && typeof matrix !== 'object') {
-            ctx.addIssue({
-                code: 'custom',
-                message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
-            });
-            return z.NEVER;
+        if (typeof contextArray[0] === 'object') {
+            const matrix = contextArray.shift();
+            context.push({ job, matrix });
         }
-        context.push({ job, matrix });
+        else {
+            context.push({ job });
+        }
     }
     return z.array(WorkflowContextSchema).parse(context);
 });
