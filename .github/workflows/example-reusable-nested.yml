@@ -1,4 +1,4 @@
-name: ~Reusable Example
+name: ~ Reusable Example Nested
 on:
   workflow_call:
     inputs:
