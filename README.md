@@ -1,5 +1,7 @@
-# Enhanced GitHub Action Context
-This action provides enhanced context information for GitHub Actions jobs.
+# Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
+
+This action provides an enhanced job context for GitHub Actions.
+
 
 ### Usage
 ```yaml
