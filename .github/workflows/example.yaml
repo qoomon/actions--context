@@ -33,7 +33,6 @@ jobs:
     strategy:
       matrix:
         node-version: [22.x, 20.x]
-        chrome-version: [latest, stable]
     steps:
       - uses: actions/checkout@v4
 
@@ -60,27 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ ubuntu-16.04, ubuntu-latest ]
         compiler: [ [g++, gcc ], [g++-8, gcc-8 ] ]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ./
-
-      - run: |
-          echo github.job: ${{ github.job }}
-
-  build-with-matrix-include:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - cpp_compiler: g++
-            c_compiler: gcc,
-          - cpp_compiler: g++-8
-            c_compiler: gcc-8
-          - cpp_compiler: clang++
-            c_compiler: clang
     steps:
       - uses: actions/checkout@v4
 
@@ -93,20 +72,15 @@ jobs:
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
-        chrome-version: [ latest, stable ]
     uses: ./.github/workflows/example-reusable.yml
     with:
-      # IMPORTANT "job" value must match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself,
-      #   add ${{ inputs.workflow-context }} as an additional line of input value
-      workflow-context: |
-        { "job": "build-with-reusable-workflow-with-matrix", "matrix": ${{ toJSON(matrix) }} }
+      # IMPORTANT ensure first value match the surrounding job name
+      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
+      workflow-context: '"build-with-reusable-workflow-with-matrix", ${{ toJSON(matrix) }}'
 
   build-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
-      # IMPORTANT "job" value must match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself,
-      #   add ${{ inputs.workflow-context }} as an additional line of input value
-      workflow-context: |
-        { "job": "build-with-reusable-workflow-nested", "matrix": ${{ toJSON(matrix) }} }
+      # IMPORTANT ensure first value match the surrounding job name
+      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
+      workflow-context: '"build-with-reusable-workflow-nested", ${{ toJSON(matrix) }}'

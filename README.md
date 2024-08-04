@@ -2,8 +2,9 @@
 
 This action provides an enhanced job context for GitHub Actions.
 
-
 ### Usage
+> [!Important]
+> For usage within a reusable workflow, see [Usage within Reusable Workflows](#usage-within-reusable-workflows)
 ```yaml
 jobs:
   example:
@@ -14,7 +15,7 @@ jobs:
       deployments: read  # required for qoomon/actions--context action
       contents: read
     steps:
-      - uses: qoomon/actions--context@v1
+      - uses: qoomon/actions--context@v2
         id: context
 
       - run: |
@@ -60,17 +61,18 @@ outputs:
 ```yaml
 jobs:
   reusable-job:
+    permissions:
+      actions:     read  # required for qoomon/actions--context action
+      deployments: read  # required for qoomon/actions--context action
+      contents: read
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
-        chrome-version: [ latest, stable ]
     uses: ./.github/workflows/example-reusable.yml
     with:
-      # IMPORTANT "job" value must match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself,
-      #   add ${{ inputs.workflow-context }} as an additional line of input value
-      workflow-context: |
-        { "job": "build-with-reusable-workflow-with-matrix", "matrix": ${{ toJSON(matrix) }} }
+      # IMPORTANT ensure first value match the surrounding job name
+      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
+      workflow-context: '"reusable-job", ${{ toJSON(matrix) }}'
 ```
 
 ##### Reusable workflow
@@ -85,14 +87,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      actions: read  # required for qoomon/actions--context action
+      actions:     read  # required for qoomon/actions--context action
       deployments: read  # required for qoomon/actions--context action
       contents: read
     steps:
-      - uses: qoomon/actions--context@v1
+      - uses: qoomon/actions--context@v2
         id: context
         with:
-          workflow-context: ${{ inputs.workflow-context }}
+          workflow-context: '${{ inputs.workflow-context }}'
 
       - run: |
           echo "Current Environment: ${{ steps.context.outputs.environment }}"

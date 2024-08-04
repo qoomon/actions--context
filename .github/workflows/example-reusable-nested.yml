@@ -14,9 +14,6 @@ jobs:
   build-with-reusable-workflow:
     uses: ./.github/workflows/example-reusable.yml
     with:
-      # IMPORTANT "job" value must match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself,
-      #   add ${{ inputs.workflow-context }} as an additional line of input value
-      workflow-context: |
-        { "job": "build-with-reusable-workflow", "matrix": ${{ toJSON(matrix) }} }
-        ${{ inputs.workflow-context }}
+      # IMPORTANT ensure first value match the surrounding job name
+      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
+      workflow-context: '"build-with-reusable-workflow", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}'

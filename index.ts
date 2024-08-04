@@ -25,7 +25,7 @@ export const action = () => run(async () => {
     // As of now (Aug 2024) it is not possible to reconstruct the job name from within a reusable workflows,
     // so we need to pass the job name and matrix properties as an action input variable
     workflowContext: getAndParseInput('workflow-context',
-        JsonObjectsTransformer.pipe(z.array(WorkflowContextSchema)), {required: false}),
+        WorkflowContextParser, {required: false}),
   }
 
   const octokit = github.getOctokit(inputs.token)
@@ -223,19 +223,19 @@ function getActualJobName({job, matrix, workflowContext}: {
 
 /**
  * Get and parse input
- * @param inputName - input name
+ * @param name - input name
  * @param schema - input schema
  * @param options - input options
  * @returns parsed input
  */
-function getAndParseInput(inputName: string, schema: z.ZodSchema, options?: InputOptions): z.infer<typeof schema> {
-  const input = getInput(inputName, options)
+function getAndParseInput(name: string, schema: z.ZodSchema, options?: InputOptions): z.infer<typeof schema> {
+  const input = getInput(name, options)
   if (!input) return undefined
 
   const parseResult = schema.safeParse(input)
   if (parseResult.error) {
     const issues = parseResult.error.issues.map(formatZodIssue)
-    throw new Error(`Invalid value for input '${inputName}'.\n` +
+    throw new Error(`Invalid value for input '${name}': ${input}\n` +
         issues.map((it) => `  - ${it}`).join('\n'))
   }
 
@@ -272,23 +272,6 @@ function throwPermissionError(permission: { scope: string; permission: string },
 // --- common utils ---
 
 /**
- * Parse JSON objects
- * @param jsonObjects - JSON objects
- * @returns parsed JSON objects
- */
-function parseJsonObjects(jsonObjects: string) {
-  jsonObjects = jsonObjects.trim()
-  if (jsonObjects === '') {
-    return []
-  }
-  if (!jsonObjects.startsWith('{') || !jsonObjects.endsWith('}')) {
-    throw new Error('Invalid JSON objects format')
-  }
-  const jsonObjectArray = '[' + jsonObjects.replaceAll(/}\s*{/g, '},\n{') + ']'
-  return JSON.parse(jsonObjectArray) as object[]
-}
-
-/**
  * Flatten objects and arrays to all its values including nested objects and arrays
  * @param values - value(s)
  * @returns flattened values
@@ -318,6 +301,40 @@ const WorkflowContextSchema = z.object({
 }).strict()
 type WorkflowContext = z.infer<typeof WorkflowContextSchema>
 
+const WorkflowContextParser = z.string()
+    .transform((str, ctx) => {
+      try {
+        return JSON.parse(`[${str.replace(/,\s*$/g, '')}]`)
+      } catch (error: unknown) {
+        ctx.addIssue({code: 'custom', message: (error as { message?: string }).message})
+        return z.NEVER
+      }
+    })
+    .pipe(z.array(z.union([z.string(), z.record(JsonSchema), z.null()])))
+    .transform((contextArray, ctx) => {
+      const context: unknown[] = []
+      while (contextArray.length > 0) {
+        const job = contextArray.shift()
+        if (typeof job !== 'string') {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
+          })
+          return z.NEVER
+        }
+        const matrix = contextArray.shift()
+        if (matrix != null && typeof matrix !== 'object') {
+          ctx.addIssue({
+            code: 'custom',
+            message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
+          })
+          return z.NEVER
+        }
+        context.push({job, matrix})
+      }
+      return z.array(WorkflowContextSchema).parse(context)
+    })
+
 // --- zod utils ---
 
 /**
@@ -333,15 +350,6 @@ function formatZodIssue(issue: z.ZodIssue): string {
 const JsonTransformer = z.string().transform((str, ctx) => {
   try {
     return JsonSchema.parse(JSON.parse(str))
-  } catch (error: unknown) {
-    ctx.addIssue({code: 'custom', message: (error as { message?: string }).message})
-    return z.NEVER
-  }
-})
-
-const JsonObjectsTransformer = z.string().transform((str, ctx) => {
-  try {
-    return JsonSchema.parse(parseJsonObjects(str))
   } catch (error: unknown) {
     ctx.addIssue({code: 'custom', message: (error as { message?: string }).message})
     return z.NEVER

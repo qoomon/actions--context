@@ -35254,7 +35254,7 @@ const action = () => run(async () => {
         matrix: getAndParseInput('__matrix', JsonTransformer.pipe(z.union([z["null"](), z.record(JsonSchema)])), { required: true }),
         // As of now (Aug 2024) it is not possible to reconstruct the job name from within a reusable workflows,
         // so we need to pass the job name and matrix properties as an action input variable
-        workflowContext: getAndParseInput('workflow-context', JsonObjectsTransformer.pipe(z.array(WorkflowContextSchema)), { required: false }),
+        workflowContext: getAndParseInput('workflow-context', WorkflowContextParser, { required: false }),
     };
     const octokit = github.getOctokit(inputs.token);
     // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
@@ -35418,19 +35418,19 @@ function getActualJobName({ job, matrix, workflowContext }) {
 // --- github actions utils ---
 /**
  * Get and parse input
- * @param inputName - input name
+ * @param name - input name
  * @param schema - input schema
  * @param options - input options
  * @returns parsed input
  */
-function getAndParseInput(inputName, schema, options) {
-    const input = (0,core.getInput)(inputName, options);
+function getAndParseInput(name, schema, options) {
+    const input = (0,core.getInput)(name, options);
     if (!input)
         return undefined;
     const parseResult = schema.safeParse(input);
     if (parseResult.error) {
         const issues = parseResult.error.issues.map(formatZodIssue);
-        throw new Error(`Invalid value for input '${inputName}'.\n` +
+        throw new Error(`Invalid value for input '${name}': ${input}\n` +
             issues.map((it) => `  - ${it}`).join('\n'));
     }
     return parseResult.data;
@@ -35460,22 +35460,6 @@ function throwPermissionError(permission, options) {
 }
 // --- common utils ---
 /**
- * Parse JSON objects
- * @param jsonObjects - JSON objects
- * @returns parsed JSON objects
- */
-function parseJsonObjects(jsonObjects) {
-    jsonObjects = jsonObjects.trim();
-    if (jsonObjects === '') {
-        return [];
-    }
-    if (!jsonObjects.startsWith('{') || !jsonObjects.endsWith('}')) {
-        throw new Error('Invalid JSON objects format');
-    }
-    const jsonObjectArray = '[' + jsonObjects.replaceAll(/}\s*{/g, '},\n{') + ']';
-    return JSON.parse(jsonObjectArray);
-}
-/**
  * Flatten objects and arrays to all its values including nested objects and arrays
  * @param values - value(s)
  * @returns flattened values
@@ -35496,6 +35480,40 @@ const WorkflowContextSchema = z.object({
     job: z.string(),
     matrix: z.union([z["null"](), JsonSchema]),
 }).strict();
+const WorkflowContextParser = z.string()
+    .transform((str, ctx) => {
+    try {
+        return JSON.parse(`[${str.replace(/,\s*$/g, '')}]`);
+    }
+    catch (error) {
+        ctx.addIssue({ code: 'custom', message: error.message });
+        return z.NEVER;
+    }
+})
+    .pipe(z.array(z.union([z.string(), z.record(JsonSchema), z["null"]()])))
+    .transform((contextArray, ctx) => {
+    const context = [];
+    while (contextArray.length > 0) {
+        const job = contextArray.shift();
+        if (typeof job !== 'string') {
+            ctx.addIssue({
+                code: 'custom',
+                message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
+            });
+            return z.NEVER;
+        }
+        const matrix = contextArray.shift();
+        if (matrix != null && typeof matrix !== 'object') {
+            ctx.addIssue({
+                code: 'custom',
+                message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
+            });
+            return z.NEVER;
+        }
+        context.push({ job, matrix });
+    }
+    return z.array(WorkflowContextSchema).parse(context);
+});
 // --- zod utils ---
 /**
  * This function will format a zod issue
@@ -35510,15 +35528,6 @@ function formatZodIssue(issue) {
 const JsonTransformer = z.string().transform((str, ctx) => {
     try {
         return JsonSchema.parse(JSON.parse(str));
-    }
-    catch (error) {
-        ctx.addIssue({ code: 'custom', message: error.message });
-        return z.NEVER;
-    }
-});
-const JsonObjectsTransformer = z.string().transform((str, ctx) => {
-    try {
-        return JsonSchema.parse(parseJsonObjects(str));
     }
     catch (error) {
         ctx.addIssue({ code: 'custom', message: error.message });
