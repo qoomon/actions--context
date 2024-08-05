@@ -1,6 +1,6 @@
-name: 'CHANGE ME'
-description: 'CHANGE ME'
-author: 'CHANGE ME'
+name: 'Enhanced Job Context'
+description: 'Get additional job context information'
+author: 'qoomon'
 branding:
   icon: box
   color: blue
