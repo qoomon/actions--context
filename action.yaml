@@ -15,7 +15,7 @@ inputs:
     default: '${{ toJSON(matrix) }}'
   workflow-context:
     description: |
-      Workflow context e.g. { "job": "<REUSABLE_WORKFLOW_JOB_NAME>", "matrix": $.{{ toJSON(matrix) }} }
+      Workflow context e.g. '"<REUSABLE_WORKFLOW_JOB_NAME>", $ {{ toJSON(matrix) }}'
 
 outputs:
   job:

@@ -48,21 +48,28 @@ export const action = () => run(async () => {
   setContextOutput('job_id', currentJob.id)
   setContextOutput('job_log_url', currentJob.html_url!)
 
-  const currentDeployment = await getCurrentDeployment(octokit, {
+  await getCurrentDeployment(octokit, {
     serverUrl: context.serverUrl,
     repo: context.repo,
     sha: context.sha,
     runId: context.runId,
     runJobId: currentJob.id,
+  }).catch((error) => {
+    if (error.message.startsWith('Ensure that GitHub job has permission: `deployments: read`.')) {
+      core.info('Skip `environment` and `deployment` outputs due to missing `deployment: read` permission.')
+      return null
+    }
+    throw error
+  }).then((currentDeployment) => {
+    if (currentDeployment) {
+      setContextOutput('environment', currentDeployment.environment)
+      setContextOutput('environment_url', currentDeployment.environmentUrl)
+      setContextOutput('deployment_id', currentDeployment.id!)
+      setContextOutput('deployment_url', currentDeployment.url)
+      setContextOutput('deployment_workflow_url', currentDeployment.workflowUrl)
+      setContextOutput('deployment_log_url', currentDeployment.logUrl)
+    }
   })
-  if (currentDeployment) {
-    setContextOutput('environment', currentDeployment.environment)
-    setContextOutput('environment_url', currentDeployment.environmentUrl)
-    setContextOutput('deployment_id', currentDeployment.id!)
-    setContextOutput('deployment_url', currentDeployment.url)
-    setContextOutput('deployment_workflow_url', currentDeployment.workflowUrl)
-    setContextOutput('deployment_log_url', currentDeployment.logUrl)
-  }
 })
 
 /**
@@ -263,7 +270,7 @@ function setContextOutput(name: string, value: string | number | undefined) {
  */
 function throwPermissionError(permission: { scope: string; permission: string }, options?: ErrorOptions): never {
   throw new Error(
-      `Ensure that GitHub job has \`permissions: ${permission.scope}: ${permission.permission}\`. ` +
+      `Ensure that GitHub job has permission: \`${permission.scope}: ${permission.permission}\`. ` +
       // eslint-disable-next-line max-len
       'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token',
       options)

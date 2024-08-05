@@ -4,11 +4,6 @@ on:
   push:
     branches: ['main']
 
-permissions:
-  actions: read  # required for qoomon/actions--context action
-  deployments: read  # required for qoomon/actions--context action
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest

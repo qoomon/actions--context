@@ -10,10 +10,6 @@ jobs:
   example:
     runs-on: ubuntu-latest
     environment: playground
-    permissions:
-      actions:     read  # required for qoomon/actions--context action
-      deployments: read  # required for qoomon/actions--context action
-      contents: read
     steps:
       - uses: qoomon/actions--context@v2
         id: context
@@ -61,10 +57,6 @@ outputs:
 ```yaml
 jobs:
   reusable-job:
-    permissions:
-      actions:     read  # required for qoomon/actions--context action
-      deployments: read  # required for qoomon/actions--context action
-      contents: read
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
@@ -86,10 +78,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      actions:     read  # required for qoomon/actions--context action
-      deployments: read  # required for qoomon/actions--context action
-      contents: read
+
     steps:
       - uses: qoomon/actions--context@v2
         id: context
