@@ -2,7 +2,7 @@
 
 This action provides an enhanced job context for GitHub Actions.
 > [!Note]
-> If you're missing a context value just [open an issue](https://github.com/qoomon/actions--context/issues)
+> If you're missing a context value feel free to [open an issue](https://github.com/qoomon/actions--context/issues)
 
 ### Usage
 > [!Important]
