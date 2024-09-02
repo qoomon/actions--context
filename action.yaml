@@ -10,12 +10,13 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: '${{ github.token }}'
-  __matrix:
-    description: 'DO NOT SET MANUALLY - Current matrix properties'
-    default: '${{ toJSON(matrix) }}'
+
   workflow-context:
     description: |
       Workflow context e.g. '"<REUSABLE_WORKFLOW_JOB_NAME>", $ {{ toJSON(matrix) }}'
+  '#matrix':
+    description: 'DO NOT SET MANUALLY - Current matrix properties'
+    default: '${{ toJSON(matrix) }}'
 
 outputs:
   job:
