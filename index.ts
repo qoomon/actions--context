@@ -1,4 +1,3 @@
-/* eslint-disable camelcase */
 import * as core from '@actions/core'
 import {context, getInput, getDeploymentObject, getJobObject, run} from './lib/actions.js'
 // see https://github.com/actions/toolkit for more GitHub actions libraries

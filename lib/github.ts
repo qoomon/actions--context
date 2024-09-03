@@ -36,5 +36,6 @@ export function getWorkflowRunHtmlUrl(context: {
   runId: number,
   runAttempt?: number
 }) {
-  return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` + (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
+  return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
+      (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
 }

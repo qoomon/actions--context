@@ -3,10 +3,11 @@ import {InputOptions} from '@actions/core'
 import {z, ZodSchema} from 'zod'
 import {Context} from '@actions/github/lib/context';
 import process from 'node:process';
-import {getFlatValues, JsonObject, JsonObjectSchema, JsonTransformer} from './common.js';
+import {_throw, getFlatValues, JsonObject, JsonObjectSchema, JsonTransformer} from './common.js';
 import * as github from '@actions/github';
 import {Deployment} from '@octokit/graphql-schema';
 import {GitHub} from "@actions/github/lib/utils";
+import {getWorkflowRunHtmlUrl} from "./github.js";
 
 export const context = enhancedContext()
 
@@ -99,7 +100,9 @@ export function getInput<T extends ZodSchema>(
     name: string, schema: T
 ): z.infer<T> | undefined
 
-export function getInput<T extends ZodSchema>(name: string, options_schema?: InputOptions | T, schema?: T): string | z.infer<T> | undefined {
+export function getInput<T extends ZodSchema>(
+    name: string, options_schema?: InputOptions | T, schema?: T
+): string | z.infer<T> | undefined {
   let options: InputOptions | undefined
   if (options_schema instanceof ZodSchema) {
     schema = options_schema
@@ -137,11 +140,14 @@ function enhancedContext() {
   const context = github.context
 
   const repository = `${context.repo.owner}/${context.repo.repo}`;
-  const runAttempt = parseInt(process.env.GITHUB_RUN_ATTEMPT!, 10);
+  const runAttempt = parseInt(process.env.GITHUB_RUN_ATTEMPT
+      ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
   const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
       (runAttempt ? `/attempts/${runAttempt}` : '');
-  const runnerName = process.env.RUNNER_NAME!;
-  const runnerTempDir = process.env.RUNNER_TEMP!;
+  const runnerName = process.env.RUNNER_NAME
+      ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
+  const runnerTempDir = process.env.RUNNER_TEMP
+      ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
 
   const additionalContext = {
     repository,
@@ -149,15 +155,13 @@ function enhancedContext() {
     runUrl,
     runnerName,
     runnerTempDir,
-  };
+  }
 
   return new Proxy(context, {
-    get(context, prop, receiver) {
+    get(context: Context, prop) {
       return prop in context
-          // @ts-ignore
-          ? context[prop]
-          // @ts-ignore
-          : additionalContext[prop];
+          ? context[prop as keyof Context]
+          : additionalContext[prop as keyof typeof additionalContext];
     },
   }) as Context & typeof additionalContext
 }
@@ -262,7 +266,9 @@ let _deploymentObject: Awaited<ReturnType<typeof getDeploymentObject>>
  * Get the current deployment from the workflow run
  * @returns the current deployment or undefined
  */
-export async function getDeploymentObject(octokit: InstanceType<typeof GitHub>): Promise<typeof deploymentObject | undefined> {
+export async function getDeploymentObject(
+    octokit: InstanceType<typeof GitHub>
+): Promise<typeof deploymentObject | undefined> {
   if (_deploymentObject) return _deploymentObject
 
   const job = await getJobObject(octokit)
@@ -327,20 +333,26 @@ export async function getDeploymentObject(octokit: InstanceType<typeof GitHub>):
   const currentDeploymentUrl =
       // eslint-disable-next-line max-len
       `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`
-  const currentDeploymentWorkflowUrl =
-      `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+  const currentDeploymentWorkflowUrl = getWorkflowRunHtmlUrl(context);
+
+  if (!currentDeployment.latestStatus) {
+    _throw(new Error('Missing deployment latestStatus'))
+  }
+  if (!currentDeployment.latestEnvironment) {
+    _throw(new Error('Missing deployment latestEnvironment'))
+  }
 
   const deploymentObject = {
     ...currentDeployment,
     databaseId: undefined,
     latestEnvironment: undefined,
     latestStatus: undefined,
-    id: currentDeployment.databaseId!,
+    id: currentDeployment.databaseId ?? _throw(new Error('Missing deployment databaseId')),
     url: currentDeploymentUrl,
     workflowUrl: currentDeploymentWorkflowUrl,
-    logUrl: currentDeployment.latestStatus!.logUrl! as string,
-    environment: currentDeployment.latestEnvironment!,
-    environmentUrl: currentDeployment.latestStatus!.environmentUrl as string || undefined,
+    logUrl: currentDeployment.latestStatus.logUrl as string || undefined,
+    environment: currentDeployment.latestEnvironment,
+    environmentUrl: currentDeployment.latestStatus.environmentUrl as string || undefined,
   }
   return _deploymentObject = deploymentObject
 }
