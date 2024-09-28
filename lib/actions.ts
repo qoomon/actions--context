@@ -3,11 +3,12 @@ import {InputOptions} from '@actions/core'
 import {z, ZodSchema} from 'zod'
 import {Context} from '@actions/github/lib/context';
 import process from 'node:process';
-import {_throw, getFlatValues, JsonObject, JsonObjectSchema, JsonTransformer} from './common.js';
+import {_throw, getFlatValues, JsonObject, JsonObjectSchema, YamlTransformer} from './common.js';
 import * as github from '@actions/github';
 import {Deployment} from '@octokit/graphql-schema';
 import {GitHub} from "@actions/github/lib/utils";
 import {getWorkflowRunHtmlUrl} from "./github.js";
+import YAML from 'yaml'
 
 export const context = enhancedContext()
 
@@ -140,6 +141,12 @@ function enhancedContext() {
   const context = github.context
 
   const repository = `${context.repo.owner}/${context.repo.repo}`;
+
+  const workflowRef = process.env.GITHUB_WORKFLOW_REF
+      ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'))
+  const workflowSha = process.env.GITHUB_WORKFLOW_SHA
+      ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'))
+
   const runAttempt = parseInt(process.env.GITHUB_RUN_ATTEMPT
       ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
   const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
@@ -151,6 +158,10 @@ function enhancedContext() {
 
   const additionalContext = {
     repository,
+
+    workflowRef,
+    workflowSha,
+
     runAttempt,
     runUrl,
     runnerName,
@@ -187,7 +198,7 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
   return actualJobName
 }
 
-const JobMatrixParser = JsonTransformer.pipe(JsonObjectSchema.nullable())
+const JobMatrixParser = YamlTransformer.pipe(JsonObjectSchema.nullable())
 
 const WorkflowContextSchema = z.object({
   job: z.string(),
@@ -197,7 +208,7 @@ const WorkflowContextSchema = z.object({
 type WorkflowContext = z.infer<typeof WorkflowContextSchema>
 
 const WorkflowContextParser = z.string()
-    .transform((str, ctx) => JsonTransformer.parse(`[${str}]`, ctx))
+    .transform((str, ctx) => YamlTransformer.parse(`[${str}]`, ctx))
     .pipe(z.array(z.union([z.string(), JsonObjectSchema]).nullable()))
     .transform((contextChainArray, ctx) => {
       const contextChain: unknown[] = []
@@ -230,6 +241,12 @@ let _jobObject: Awaited<ReturnType<typeof getJobObject>>
 export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promise<typeof jobObject> {
   if (_jobObject) return _jobObject
 
+  const absoluteJobName = getAbsoluteJobName({
+    job: await getJobName(),
+    matrix: getInput('#matrix', JobMatrixParser),
+    workflowContextChain: getInput('workflow-context', WorkflowContextParser),
+  })
+
   const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
     ...context.repo,
     run_id: context.runId,
@@ -241,23 +258,54 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
     throw error
   })
 
-  const absoluteJobName = getAbsoluteJobName({
-    job: context.job,
-    matrix: getInput('#matrix', JobMatrixParser),
-    workflowContextChain: getInput('workflow-context', WorkflowContextParser),
-  })
+  console.log('context.job:', context.job)
+  console.log('absoluteJobName:', absoluteJobName)
+  console.log('workflowRunJobs:', workflowRunJobs.map((job) => ({
+    name: job.name,
+  })))
 
   const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName)
   if (!currentJob) {
     throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
         'If this action is used within a reusable workflow, ensure that ' +
-        'action input \'#workflow-context\' is set correctly and ' +
-        'the \'#workflow-context\' job name matches the job name of the job name that uses the reusable workflow.')
-    // TODO better error message
+        'action input \'workflow-context\' is set to ${{ inputs.workflow-context }}' +
+        'and workflow input \'workflow-context\' was set to \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}\'' +
+        'or \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}\' in case of a nested workflow.'
+    )
   }
 
   const jobObject = {...currentJob,}
   return _jobObject = jobObject;
+
+  async function getJobName() {
+    // try to get job name from job workflow definition
+    const idToken = await core.getIDToken().catch((error) => {
+      core.debug(`Failed to get job workflow definition: ${error.message}`)
+    })
+    if(idToken) {
+      const tokenPayload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString())
+
+      const jobWorkflowFilePath = tokenPayload.job_workflow_ref.replace(/[^/]+\/[^/]+\//, '').replace(/@[^@]+$/, '')
+      const jobWorkflowDefinition = await octokit.rest.repos.getContent({
+        ...context.repo,
+        path: jobWorkflowFilePath,
+        ref: tokenPayload.job_workflow_sha,
+      }).then(({data}) => {
+        if (!('content' in data)) {
+          throw new Error('Unexpected response from GitHub API: missing content')
+        }
+        const content = Buffer.from(data.content, 'base64').toString('utf-8')
+        return YAML.parse(content)
+      })
+
+      const jobName = jobWorkflowDefinition?.jobs?.[context.job]?.name
+      if(jobName) {
+        return jobName
+      }
+    }
+
+    return context.job
+  }
 }
 
 let _deploymentObject: Awaited<ReturnType<typeof getDeploymentObject>>

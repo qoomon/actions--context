@@ -66,7 +66,7 @@ jobs:
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: '"reusable-job", ${{ toJSON(matrix) }}'
+      workflow-context: reusable-job, ${{ toJSON(matrix) }}
 ```
 
 ##### Reusable workflow
@@ -85,7 +85,7 @@ jobs:
       - uses: qoomon/actions--context@v2
         id: context
         with:
-          workflow-context: '${{ inputs.workflow-context }}'
+          workflow-context: ${{ inputs.workflow-context }}
 
       - run: |
           echo "Current Environment: ${{ steps.context.outputs.environment }}"

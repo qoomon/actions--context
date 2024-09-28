@@ -1,4 +1,4 @@
-name: ~ Reusable Example
+name: ~ Example Reusable
 on:
   workflow_call:
     inputs:
@@ -9,8 +9,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - run: env | grep GITHUB_
+
       - uses: actions/checkout@v4
 
       - uses: ./
         with:
-          workflow-context: '${{ inputs.workflow-context }}'
+          workflow-context: ${{ inputs.workflow-context }}

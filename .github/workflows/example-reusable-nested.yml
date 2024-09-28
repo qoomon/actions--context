@@ -1,4 +1,4 @@
-name: ~ Reusable Example Nested
+name: ~ Example Reusable Nested
 on:
   workflow_call:
     inputs:
@@ -11,4 +11,4 @@ jobs:
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: '"build-with-reusable-workflow", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}'
+      workflow-context: build-with-reusable-workflow, ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}

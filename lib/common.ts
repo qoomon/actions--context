@@ -1,4 +1,5 @@
 import {z} from "zod";
+import YAML from "yaml";
 
 export type JsonLiteral = string | number | boolean | null
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions, @typescript-eslint/consistent-indexed-object-style
@@ -8,9 +9,9 @@ export const LiteralSchema: z.ZodType<JsonLiteral> = z.union([z.string(), z.numb
 export const JsonSchema: z.ZodType<Json> = z.lazy(() => z.union([LiteralSchema, JsonObjectSchema, z.array(JsonSchema)]))
 export const JsonObjectSchema: z.ZodType<JsonObject> = z.record(JsonSchema)
 
-export const JsonTransformer = z.string().transform((str, ctx) => {
+export const YamlTransformer = z.string().transform((str, ctx) => {
   try {
-    return JSON.parse(str) as Json
+    return YAML.parse(str) as Json
   } catch (error: unknown) {
     ctx.addIssue({code: 'custom', message: (error as { message?: string }).message})
     return z.NEVER

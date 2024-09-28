@@ -4,11 +4,17 @@ on:
   push:
     branches: ['main']
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   build:
     name: build name
     runs-on: ubuntu-latest
     steps:
+      - run: env | grep GITHUB_
+
       - uses: actions/checkout@v4
 
       - uses: ./
@@ -72,11 +78,11 @@ jobs:
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: '"build-with-reusable-workflow-with-matrix", ${{ toJSON(matrix) }}'
+      workflow-context: build-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
 
   build-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: '"build-with-reusable-workflow-nested", ${{ toJSON(matrix) }}'
+      workflow-context: build-with-reusable-workflow-nested, ${{ toJSON(matrix) }}
