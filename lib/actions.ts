@@ -3,12 +3,11 @@ import {InputOptions} from '@actions/core'
 import {z, ZodSchema} from 'zod'
 import {Context} from '@actions/github/lib/context';
 import process from 'node:process';
-import {_throw, getFlatValues, JsonObject, JsonObjectSchema, YamlTransformer} from './common.js';
+import {_throw, getFlatValues, JsonObject, JsonObjectSchema, JsonParser, YamlParser} from './common.js';
 import * as github from '@actions/github';
 import {Deployment} from '@octokit/graphql-schema';
 import {GitHub} from "@actions/github/lib/utils";
 import {getWorkflowRunHtmlUrl} from "./github.js";
-import YAML from 'yaml'
 
 export const context = enhancedContext()
 
@@ -198,7 +197,7 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
   return actualJobName
 }
 
-const JobMatrixParser = YamlTransformer.pipe(JsonObjectSchema.nullable())
+const JobMatrixParser = JsonParser.pipe(JsonObjectSchema.nullable())
 
 const WorkflowContextSchema = z.object({
   job: z.string(),
@@ -208,7 +207,7 @@ const WorkflowContextSchema = z.object({
 type WorkflowContext = z.infer<typeof WorkflowContextSchema>
 
 const WorkflowContextParser = z.string()
-    .transform((str, ctx) => YamlTransformer.parse(`[${str}]`, ctx))
+    .transform((str, ctx) => YamlParser.parse(`[${str}]`, ctx))
     .pipe(z.array(z.union([z.string(), JsonObjectSchema]).nullable()))
     .transform((contextChainArray, ctx) => {
       const contextChain: unknown[] = []
@@ -242,8 +241,8 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
   if (_jobObject) return _jobObject
 
   const absoluteJobName = getAbsoluteJobName({
-    job: await getJobName(),
-    matrix: getInput('#matrix', JobMatrixParser),
+    job: getInput('job-name', {required: true}),
+    matrix: getInput('#job-matrix', JobMatrixParser),
     workflowContextChain: getInput('workflow-context', WorkflowContextParser),
   })
 
@@ -258,12 +257,6 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
     throw error
   })
 
-  console.log('context.job:', context.job)
-  console.log('absoluteJobName:', absoluteJobName)
-  console.log('workflowRunJobs:', workflowRunJobs.map((job) => ({
-    name: job.name,
-  })))
-
   const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName)
   if (!currentJob) {
     throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
@@ -276,36 +269,6 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
 
   const jobObject = {...currentJob,}
   return _jobObject = jobObject;
-
-  async function getJobName() {
-    // try to get job name from job workflow definition
-    const idToken = await core.getIDToken().catch((error) => {
-      core.debug(`Failed to get job workflow definition: ${error.message}`)
-    })
-    if(idToken) {
-      const tokenPayload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString())
-
-      const jobWorkflowFilePath = tokenPayload.job_workflow_ref.replace(/[^/]+\/[^/]+\//, '').replace(/@[^@]+$/, '')
-      const jobWorkflowDefinition = await octokit.rest.repos.getContent({
-        ...context.repo,
-        path: jobWorkflowFilePath,
-        ref: tokenPayload.job_workflow_sha,
-      }).then(({data}) => {
-        if (!('content' in data)) {
-          throw new Error('Unexpected response from GitHub API: missing content')
-        }
-        const content = Buffer.from(data.content, 'base64').toString('utf-8')
-        return YAML.parse(content)
-      })
-
-      const jobName = jobWorkflowDefinition?.jobs?.[context.job]?.name
-      if(jobName) {
-        return jobName
-      }
-    }
-
-    return context.job
-  }
 }
 
 let _deploymentObject: Awaited<ReturnType<typeof getDeploymentObject>>
@@ -418,6 +381,3 @@ export function throwPermissionError(permission: { scope: string; permission: st
       'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token',
       options)
 }
-
-
-// TODO function to store and read job state
