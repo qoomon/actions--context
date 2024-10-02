@@ -53,6 +53,19 @@ outputs:
     description: The deployment log HTML url of the current job.
 ```
 
+### Usage within Named Jobs
+```yaml
+jobs:
+  example:
+    name: Example Job
+    runs-on: ubuntu-latest
+    steps:
+      - uses: qoomon/actions--context@v2
+        id: context
+        with:
+          job-name: Example Job
+```
+
 ### Usage within Reusable Workflows
 
 ##### Main Workflow
@@ -86,10 +99,6 @@ jobs:
         id: context
         with:
           workflow-context: ${{ inputs.workflow-context }}
-
-      - run: |
-          echo "Current Environment: ${{ steps.context.outputs.environment }}"
-          echo "Job Logs: ${{ steps.context.outputs.job_log_url }}"
 ```
 
 #### Release New Action Version
