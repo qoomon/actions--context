@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  job-with-name:
     name: build name
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +21,7 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
-  build-with-environment:
+  job-with-environment:
     runs-on: ubuntu-latest
     environment: test
     steps:
@@ -29,7 +29,7 @@ jobs:
 
       - uses: ./
 
-  build-with-matrix:
+  job-with-matrix:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -42,7 +42,7 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
-  build-with-matrix-nested-objects:
+  job-with-matrix-nested-objects:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -56,7 +56,7 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
-  build-with-matrix-nested-arrays:
+  job-with-matrix-nested-arrays:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -69,7 +69,7 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
-  build-with-reusable-workflow-with-matrix:
+  job-with-reusable-workflow-with-matrix:
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
@@ -79,7 +79,7 @@ jobs:
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
       workflow-context: build-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
 
-  build-with-reusable-workflow-nested:
+  job-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
       # IMPORTANT ensure first value match the surrounding job name
