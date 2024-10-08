@@ -212,6 +212,9 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
       actualJobName = `${actualJobName} (${flatValues.join(', ')})`
     }
   }
+  if (actualJobName.length > 98) {
+    actualJobName = actualJobName.substring(0, 98) + '...'
+  }
 
   workflowContextChain?.forEach((workflowContext) => {
     const contextJob = getAbsoluteJobName(workflowContext)
@@ -269,6 +272,8 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
     matrix: getInput('#job-matrix', JobMatrixParser),
     workflowContextChain: getInput('workflow-context', WorkflowContextParser),
   })
+
+  console.error('absoluteJobName', absoluteJobName)
 
   const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
     ...context.repo,
