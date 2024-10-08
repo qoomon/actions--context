@@ -94,4 +94,4 @@ jobs:
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuv, ${{ toJSON(matrix) }}
+      workflow-context: job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrs, ${{ toJSON(matrix) }}

@@ -212,8 +212,8 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
       actualJobName = `${actualJobName} (${flatValues.join(', ')})`
     }
   }
-  if (actualJobName.length > 98) {
-    actualJobName = actualJobName.substring(0, 98) + '...'
+  if (actualJobName.length > 97) {
+    actualJobName = actualJobName.substring(0, 97) + '...'
   }
 
   workflowContextChain?.forEach((workflowContext) => {
