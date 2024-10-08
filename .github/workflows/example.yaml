@@ -79,24 +79,6 @@ jobs:
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
       workflow-context: build-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
 
-  build-with-reusable-workflow-with-matrix-inputs:
-    strategy:
-      fail-fast: false
-      matrix:
-        inputs: [
-          {id: '1', input_1: 'In_this_input_we_are_testing_very_very_very_long_strings', input_2: 'In_this_input_we_are_testing_very_very_very_long_strings'},
-          {id: '1', input_1: 'In_this_input_we_are_testing_very_very_very_long_strings', input_2: 'In_this_input_we_are_testing_very_very_very_long_strings'},
-          {id: '1', input_1: 'In_this_input_we_are_testing_very_very_very_long_strings', input_2: 'In_this_input_we_are_testing_very_very_very_long_string'},
-          {id: '2', input_1: 'Example', input_2: 'In_this_input_we_are_testing_very_very_very_long_strings'},
-          {id: '3', input_2: 'In_this_input_we_are_testing_very_very_very_long_strings'},]
-    uses: ./.github/workflows/example-reusable-from-matrix.yml
-    with:
-      id: ${{matrix.inputs.id}} # Id to seperate the different runs
-      input_2: ${{matrix.inputs.input_2}}
-      input_1: ${{matrix.inputs.input_1}}
-      workflow-context: build-with-reusable-workflow-with-matrix-inputs, ${{ toJSON(matrix) }}
-
-
   build-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
