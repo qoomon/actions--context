@@ -21,6 +21,18 @@ jobs:
       - run: |
           echo github.job: ${{ github.job }}
 
+  job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz:
+    runs-on: ubuntu-latest
+    steps:
+      - run: env | grep GITHUB_
+
+      - uses: actions/checkout@v4
+
+      - uses: ./
+
+      - run: |
+          echo github.job: ${{ github.job }}
+
   job-with-environment:
     runs-on: ubuntu-latest
     environment: test
@@ -77,11 +89,11 @@ jobs:
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: build-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
+      workflow-context: job-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
 
   job-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
       # IMPORTANT ensure first value match the surrounding job name
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: build-with-reusable-workflow-nested, ${{ toJSON(matrix) }}
+      workflow-context: job-with-reusable-workflow-nested, ${{ toJSON(matrix) }}
