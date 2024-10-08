@@ -86,7 +86,7 @@ jobs:
       # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
       workflow-context: job-with-reusable-workflow-nested, ${{ toJSON(matrix) }}
 
-  job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuv:
+  job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstu:
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
