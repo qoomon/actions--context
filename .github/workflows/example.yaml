@@ -81,8 +81,6 @@ jobs:
 
   build-with-reusable-workflow-with-matrix-inputs:
     strategy:
-      # super important if you want to see all results, even if one fails
-      # fail-fast is true by default
       fail-fast: false
       matrix:
         inputs: [
@@ -101,8 +99,6 @@ jobs:
 
   build-with-reusable-workflow-with-matrix-inputs-max-parallel:
     strategy:
-      # super important if you want to see all results, even if one fails
-      # fail-fast is true by default
       fail-fast: false
       max-parallel: 2
       matrix:
@@ -118,8 +114,8 @@ jobs:
       id: ${{matrix.inputs.id}} # Id to seperate the different runs
       input_2: ${{matrix.inputs.input_2}}
       input_1: ${{matrix.inputs.input_1}}
-      workflow-context: build-with-reusable-workflow-with-matrix-inputs, ${{ toJSON(matrix) }}
-      
+      workflow-context: build-with-reusable-workflow-with-matrix-max-parallel, ${{ toJSON(matrix) }}
+
   build-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
     with:
