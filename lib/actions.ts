@@ -399,9 +399,27 @@ export async function getDeploymentObject(
  * @returns void
  */
 export function throwPermissionError(permission: { scope: string; permission: string }, options?: ErrorOptions): never {
-  throw new Error(
+  throw new PermissionError(
       `Ensure that GitHub job has permission: \`${permission.scope}: ${permission.permission}\`. ` +
       // eslint-disable-next-line max-len
       'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token',
-      options)
+      permission,
+      options,
+  )
+}
+
+export class PermissionError extends Error {
+
+  scope: string;
+  permission: string;
+
+  constructor(msg: string, permission: { scope: string; permission: string }, options?: ErrorOptions) {
+    super(msg, options);
+
+    this.scope = permission.scope;
+    this.permission = permission.permission;
+
+    // Set the prototype explicitly.
+    Object.setPrototypeOf(this, PermissionError.prototype);
+  }
 }

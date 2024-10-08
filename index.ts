@@ -1,5 +1,5 @@
 import * as core from '@actions/core'
-import {context, getInput, getDeploymentObject, getJobObject, run} from './lib/actions.js'
+import {context, getDeploymentObject, getInput, getJobObject, PermissionError, run} from './lib/actions.js'
 // see https://github.com/actions/toolkit for more GitHub actions libraries
 import {fileURLToPath} from 'url'
 import * as process from 'node:process'
@@ -26,7 +26,14 @@ export const action = () => run(async () => {
     setOutputAndLog('job_log_url', job.html_url || '')
   });
 
-  await getDeploymentObject(octokit).then((deployment) => {
+  await getDeploymentObject(octokit).catch((error) => {
+    if (error instanceof PermissionError && error.scope === 'deployments' && error.permission === 'read') {
+      core.debug('No permission to read deployment information.' +
+          ' Grant the "deployments: read" permission to workflow job, if needed.')
+      return null
+    }
+    throw error
+  }).then((deployment) => {
     if (deployment) {
       setOutputAndLog('environment', deployment.environment)
       setOutputAndLog('environment_url', deployment.environmentUrl)
