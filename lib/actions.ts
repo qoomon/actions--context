@@ -1,6 +1,6 @@
 import * as core from '@actions/core'
 import {InputOptions} from '@actions/core'
-import {z, ZodSchema} from 'zod'
+import {array, z, ZodSchema} from 'zod'
 import {Context} from '@actions/github/lib/context';
 import process from 'node:process';
 import {_throw, getFlatValues, JsonObject, JsonObjectSchema, JsonParser, YamlParser} from './common.js';
@@ -163,7 +163,6 @@ export function getInput<T extends ZodSchema>(
 function enhancedContext() {
   const context = github.context
 
-  console.log(`GHA:${JSON.stringify(github.context)}`)
   const repository = `${context.repo.owner}/${context.repo.repo}`;
 
   const workflowRef = process.env.GITHUB_WORKFLOW_REF
@@ -206,7 +205,6 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
   matrix?: JsonObject | null
   workflowContextChain?: WorkflowContext[]
 }) {
-  console.log(`job:${job}`)
   let actualJobName = job
   if (matrix) {
     const flatValues = getFlatValues(matrix)
@@ -292,12 +290,11 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
     throw error
   })
 
-  console.log(`Workflow Data:${JSON.stringify(workflowRunJobs)}`)
   
   const runnerName = getInput('runner-name', {required: true})
   //In the case of truncated job name, the runner name was the only other way i could find to identify the job
   // This still might produce a run that points to the wrong job, but it's the best I could do
-  const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName && job.status=== "in_progress" && job.runner_name === runnerName)
+  const currentJob = workflowRunJobs.filter((job) => job.name === absoluteJobName && job.status=== "in_progress" && job.runner_name === runnerName)
   if (!currentJob) {
     throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
         'If this action is used within a reusable workflow, ensure that ' +
@@ -305,9 +302,14 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
         'and workflow input \'workflow-context\' was set to \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}\'' +
         'or \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}\' in case of a nested workflow.'
     )
+  } else if (currentJob.length != 1) {
+    throw new Error(`Current job '${absoluteJobName}' returned multiple matches'.\n` +
+      'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
+      'Github Actions may have truncated it if the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\'' +
+      'exceeds 97 characters.'
+    )
   }
-
-  const jobObject = {...currentJob,}
+  const jobObject = {...currentJob[0],}
   return _jobObject = jobObject;
 }
 
