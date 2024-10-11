@@ -44644,7 +44644,7 @@ async function getJobObject(octokit) {
     const runnerName = getInput('runner-name', { required: true });
     //In the case of truncated job name, the runner name was the only other way i could find to identify the job
     // This still might produce a run that points to the wrong job, but it's the best I could do
-    const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName && job.runner_name === runnerName);
+    const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName && job.status === "in_progress" && job.runner_name === runnerName);
     if (!currentJob) {
         throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
             'If this action is used within a reusable workflow, ensure that ' +
