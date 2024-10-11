@@ -206,6 +206,7 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
   matrix?: JsonObject | null
   workflowContextChain?: WorkflowContext[]
 }) {
+  console.log(`job:${job}`)
   let actualJobName = job
   if (matrix) {
     const flatValues = getFlatValues(matrix)

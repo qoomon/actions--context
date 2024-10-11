@@ -44567,6 +44567,7 @@ function enhancedContext() {
     });
 }
 function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
+    console.log(`job:${job}`);
     let actualJobName = job;
     if (matrix) {
         const flatValues = getFlatValues(matrix);
