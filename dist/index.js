@@ -44638,6 +44638,7 @@ async function getJobObject(octokit) {
         }
         throw error;
     });
+    console.log(`Workflow Data:${JSON.stringify(workflowRunJobs)}`);
     const runnerName = getInput('runner-name', { required: true });
     //In the case of truncated job name, the runner name was the only other way i could find to identify the job
     // This still might produce a run that points to the wrong job, but it's the best I could do
