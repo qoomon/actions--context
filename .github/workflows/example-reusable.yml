@@ -6,7 +6,7 @@ on:
         type: string
 
 jobs:
-  build:
+  job-within-a-reusable-workflow:
     runs-on: ubuntu-latest
     steps:
       - run: env | grep GITHUB_

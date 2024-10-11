@@ -44577,6 +44577,9 @@ function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
             }
         }
     }
+    if (actualJobName.length > 97) {
+        actualJobName = actualJobName.substring(0, 97) + '...';
+    }
     workflowContextChain?.forEach((workflowContext) => {
         const contextJob = getAbsoluteJobName(workflowContext);
         actualJobName = `${contextJob} / ${actualJobName}`;
@@ -44624,6 +44627,7 @@ async function getJobObject(octokit) {
         matrix: getInput('#job-matrix', JobMatrixParser),
         workflowContextChain: getInput('workflow-context', WorkflowContextParser),
     });
+    console.error('absoluteJobName', absoluteJobName);
     const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
         ...context.repo,
         run_id: context.runId,
@@ -44740,9 +44744,20 @@ async function getDeploymentObject(octokit) {
  * @returns void
  */
 function throwPermissionError(permission, options) {
-    throw new Error(`Ensure that GitHub job has permission: \`${permission.scope}: ${permission.permission}\`. ` +
+    throw new PermissionError(`Ensure that GitHub job has permission: \`${permission.scope}: ${permission.permission}\`. ` +
         // eslint-disable-next-line max-len
-        'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token', options);
+        'https://docs.github.com/en/actions/security-guides/automatic-token-authentication#modifying-the-permissions-for-the-github_token', permission, options);
+}
+class PermissionError extends Error {
+    scope;
+    permission;
+    constructor(msg, permission, options) {
+        super(msg, options);
+        this.scope = permission.scope;
+        this.permission = permission.permission;
+        // Set the prototype explicitly.
+        Object.setPrototypeOf(this, PermissionError.prototype);
+    }
 }
 
 // EXTERNAL MODULE: external "url"
@@ -44770,7 +44785,14 @@ const action = () => run(async () => {
         setOutputAndLog('job_id', job.id);
         setOutputAndLog('job_log_url', job.html_url || '');
     });
-    await getDeploymentObject(octokit).then((deployment) => {
+    await getDeploymentObject(octokit).catch((error) => {
+        if (error instanceof PermissionError && error.scope === 'deployments' && error.permission === 'read') {
+            core.debug('No permission to read deployment information.' +
+                ' Grant the "deployments: read" permission to workflow job, if needed.');
+            return null;
+        }
+        throw error;
+    }).then((deployment) => {
         if (deployment) {
             setOutputAndLog('environment', deployment.environment);
             setOutputAndLog('environment_url', deployment.environmentUrl);
