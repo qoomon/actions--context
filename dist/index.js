@@ -44535,6 +44535,7 @@ function getInput(name, options_schema, schema) {
 }
 function enhancedContext() {
     const context = github.context;
+    console.log(`GHA:${github.context}`);
     const repository = `${context.repo.owner}/${context.repo.repo}`;
     const workflowRef = (external_node_process_default()).env.GITHUB_WORKFLOW_REF
         ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));

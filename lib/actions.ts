@@ -163,6 +163,7 @@ export function getInput<T extends ZodSchema>(
 function enhancedContext() {
   const context = github.context
 
+  console.log(`GHA:${github.context}`)
   const repository = `${context.repo.owner}/${context.repo.repo}`;
 
   const workflowRef = process.env.GITHUB_WORKFLOW_REF
