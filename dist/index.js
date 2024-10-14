@@ -44571,13 +44571,10 @@ function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
         const flatValues = getFlatValues(matrix);
         if (flatValues.length > 0) {
             actualJobName = `${actualJobName} (${flatValues.join(', ')})`;
-            // If the job name is too long, github truncates it and adds an ellipsis
-            if (actualJobName.length > 97) {
-                actualJobName = `${actualJobName.substring(0, 97)}...`;
-            }
         }
     }
-    if (actualJobName.length > 97) {
+    // If the job name is too long, github truncates it and adds an ellipsis
+    if (actualJobName.length > 97 && actualJobName.charAt(97) != ')') {
         actualJobName = actualJobName.substring(0, 97) + '...';
     }
     workflowContextChain?.forEach((workflowContext) => {
