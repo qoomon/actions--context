@@ -289,7 +289,7 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
 
   
   const runnerName = getInput('runner-name', {required: true})
-  //In the case of truncated job name the only 
+  //In the case of truncated job name the only other shared identifier is the runner name
   const currentJob = workflowRunJobs.filter((job) => job.name === absoluteJobName && job.status=== "in_progress" && job.runner_name === runnerName)
   if (currentJob.length === 0) {
     throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
