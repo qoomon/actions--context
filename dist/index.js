@@ -44573,7 +44573,8 @@ function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
             actualJobName = `${actualJobName} (${flatValues.join(', ')})`;
         }
     }
-    if (actualJobName.length > 97) {
+    // If the job name is too long, github truncates it and adds an ellipsis
+    if (actualJobName.length > 100) {
         actualJobName = actualJobName.substring(0, 97) + '...';
     }
     workflowContextChain?.forEach((workflowContext) => {
@@ -44634,15 +44635,23 @@ async function getJobObject(octokit) {
         }
         throw error;
     });
-    const currentJob = workflowRunJobs.find((job) => job.name === absoluteJobName);
-    if (!currentJob) {
+    const runnerName = getInput('runner-name', { required: true });
+    //In the case of truncated job name the only 
+    const currentJob = workflowRunJobs.filter((job) => job.name === absoluteJobName && job.status === "in_progress" && job.runner_name === runnerName);
+    if (currentJob.length === 0) {
         throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
             'If this action is used within a reusable workflow, ensure that ' +
             'action input \'workflow-context\' is set to ${{ inputs.workflow-context }}' +
             'and workflow input \'workflow-context\' was set to \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}\'' +
             'or \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}\' in case of a nested workflow.');
     }
-    const jobObject = { ...currentJob, };
+    else if (currentJob.length != 1) {
+        throw new Error(`Current job '${absoluteJobName}' returned multiple matches'.\n` +
+            'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
+            'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 97 characters' +
+            'Github Actions may have truncated it. Thus, potentially making it non unique. ');
+    }
+    const jobObject = { ...currentJob[0], };
     return _jobObject = jobObject;
 }
 let _deploymentObject;
