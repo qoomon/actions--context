@@ -301,7 +301,7 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
   } else if (currentJob.length != 1) {
     throw new Error(`Current job '${absoluteJobName}' returned multiple matches'.\n` +
       'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
-      'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 97 characters' +
+      'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 100 characters' +
       'Github Actions may have truncated it. Thus, potentially making it non unique. '
     )
   }
