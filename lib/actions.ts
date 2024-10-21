@@ -213,7 +213,7 @@ function getAbsoluteJobName({job, matrix, workflowContextChain}: {
     }
   }
   // If the job name is too long, github truncates it and adds an ellipsis
-  if (actualJobName.length > 97 && actualJobName.charAt(97) != ')') {
+  if (actualJobName.length > 100) {
     actualJobName = actualJobName.substring(0, 97) + '...'
   }
 
