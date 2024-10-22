@@ -287,25 +287,27 @@ export async function getJobObject(octokit: InstanceType<typeof GitHub>): Promis
     throw error
   })
 
-  
+
   const runnerName = getInput('runner-name', {required: true})
   //In the case of truncated job name the only other shared identifier is the runner name
-  const currentJob = workflowRunJobs.filter((job) => job.name === absoluteJobName && job.status=== "in_progress" && job.runner_name === runnerName)
-  if (currentJob.length === 0) {
+  const currentJobs = workflowRunJobs
+      .filter((job) => job.name === absoluteJobName && job.status === "in_progress" && job.runner_name === runnerName)
+  if (currentJobs.length === 0) {
     throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
         'If this action is used within a reusable workflow, ensure that ' +
         'action input \'workflow-context\' is set to ${{ inputs.workflow-context }}' +
         'and workflow input \'workflow-context\' was set to \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}\'' +
         'or \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}\' in case of a nested workflow.'
     )
-  } else if (currentJob.length != 1) {
+  } else if (currentJobs.length != 1) {
     throw new Error(`Current job '${absoluteJobName}' returned multiple matches'.\n` +
-      'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
-      'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 100 characters' +
-      'Github Actions may have truncated it. Thus, potentially making it non unique. '
+        'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
+        'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 100 characters' +
+        'Github Actions may have truncated it. Thus, potentially making it non unique. '
     )
   }
-  const jobObject = {...currentJob[0],}
+
+  const jobObject = {...currentJobs[0],}
   return _jobObject = jobObject;
 }
 
@@ -338,7 +340,7 @@ export async function getDeploymentObject(
 
   // --- get deployment workflow job run id
   // noinspection GraphQLUnresolvedReference
-  const potentialDeploymentsFromGrapqlApi = await octokit.graphql<{ nodes: Deployment[] }>(`
+  const potentialDeploymentsFromGraphqlApi = await octokit.graphql<{ nodes: Deployment[] }>(`
     query ($ids: [ID!]!) {
       nodes(ids: $ids) {
         ... on Deployment {
@@ -362,7 +364,7 @@ export async function getDeploymentObject(
       .filter((deployment) => deployment.task === 'deploy')
       .filter((deployment) => deployment.state === 'IN_PROGRESS'))
 
-  const currentDeployment = potentialDeploymentsFromGrapqlApi.find((deployment) => {
+  const currentDeployment = potentialDeploymentsFromGraphqlApi.find((deployment) => {
     if (!deployment.latestStatus?.logUrl) return false
     const logUrl = new URL(deployment.latestStatus.logUrl)
 
