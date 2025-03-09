@@ -4087,18 +4087,18 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // pkg/dist-src/index.js
-var dist_src_exports = {};
-__export(dist_src_exports, {
+var index_exports = {};
+__export(index_exports, {
   GraphqlResponseError: () => GraphqlResponseError,
   graphql: () => graphql2,
   withCustomRequest: () => withCustomRequest
 });
-module.exports = __toCommonJS(dist_src_exports);
+module.exports = __toCommonJS(index_exports);
 var import_request3 = __nccwpck_require__(8636);
 var import_universal_user_agent = __nccwpck_require__(3843);
 
 // pkg/dist-src/version.js
-var VERSION = "7.1.0";
+var VERSION = "7.1.1";
 
 // pkg/dist-src/with-defaults.js
 var import_request2 = __nccwpck_require__(8636);
@@ -4146,8 +4146,7 @@ function graphql(request2, query, options) {
       );
     }
     for (const key in options) {
-      if (!FORBIDDEN_VARIABLE_OPTIONS.includes(key))
-        continue;
+      if (!FORBIDDEN_VARIABLE_OPTIONS.includes(key)) continue;
       return Promise.reject(
         new Error(
           `[@octokit/graphql] "${key}" cannot be used as variable name`
@@ -44835,8 +44834,18 @@ function enhancedContext() {
         (runAttempt ? `/attempts/${runAttempt}` : '');
     const runnerName = (external_node_process_default()).env.RUNNER_NAME
         ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
-    const runnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
-    const runnerId = runnerIdString ? parseInt(runnerIdString, 10) : undefined;
+    const runnerId = (() => {
+        if (runnerName === "GitHub Actions 1") {
+            return 21;
+        }
+        else {
+            const runnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
+            if (!runnerIdString) {
+                throw new Error(`Failed to parse runner id from runner name: ${runnerName}`);
+            }
+            return parseInt(runnerIdString, 10);
+        }
+    })();
     const runnerTempDir = (external_node_process_default()).env.RUNNER_TEMP
         ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
     const additionalContext = {
@@ -44857,110 +44866,73 @@ function enhancedContext() {
         },
     });
 }
-function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
-    let actualJobName = job;
-    if (matrix) {
-        const flatValues = getFlatValues(matrix);
-        if (flatValues.length > 0) {
-            actualJobName = `${actualJobName} (${flatValues.join(', ')})`;
-        }
-    }
-    // If the job name is too long, github truncates it and adds an ellipsis
-    if (actualJobName.length > 100) {
-        actualJobName = actualJobName.substring(0, 97) + '...';
-    }
-    workflowContextChain?.forEach((workflowContext) => {
-        const contextJob = getAbsoluteJobName(workflowContext);
-        actualJobName = `${contextJob} / ${actualJobName}`;
-    });
-    return actualJobName;
-}
-const JobMatrixParser = JsonParser.pipe(JsonObjectSchema.nullable());
-const WorkflowContextSchema = z.object({
-    job: z.string(),
-    matrix: JsonObjectSchema.nullable(),
-}).strict();
-const WorkflowContextParser = z.string()
-    .transform((str, ctx) => YamlParser.parse(`[${str}]`, ctx))
-    .pipe(z.array(z.union([z.string(), JsonObjectSchema]).nullable()))
-    .transform((contextChainArray, ctx) => {
-    const contextChain = [];
-    while (contextChainArray.length > 0) {
-        const job = contextChainArray.shift();
-        if (typeof job !== 'string') {
-            ctx.addIssue({
-                code: 'custom',
-                message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
-            });
-            return z.NEVER;
-        }
-        let matrix;
-        if (typeof contextChainArray[0] === 'object') {
-            matrix = contextChainArray.shift();
-        }
-        contextChain.push({ job, matrix });
-    }
-    return contextChain;
-})
-    .pipe(z.array(WorkflowContextSchema));
-let _jobObject;
+// cache of getCurrentJob result
+let _currentJobObject;
 /**
  * Get the current job from the workflow run
  * @returns the current job
  */
-async function getJobObject(octokit) {
-    if (_jobObject)
-        return _jobObject;
-    const absoluteJobName = getAbsoluteJobName({
-        job: getInput('job-name', { required: true }),
-        matrix: getInput('#job-matrix', JobMatrixParser),
-        workflowContextChain: getInput('workflow-context', WorkflowContextParser),
-    });
-    console.error('absoluteJobName', absoluteJobName);
-    const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
-        ...context.repo,
-        run_id: context.runId,
-        attempt_number: context.runAttempt,
-    }).catch((error) => {
-        if (error.status === 403) {
-            throwPermissionError({ scope: 'actions', permission: 'read' }, error);
+async function getCurrentJob(octokit) {
+    if (_currentJobObject)
+        return _currentJobObject;
+    let currentJobs = [];
+    let tryCount = 0;
+    const tryCountMax = 10;
+    const tryDelay = 1000;
+    do {
+        tryCount++;
+        if (tryCount > 1) {
+            console.log(`Waiting for job available through GitHub API... (${tryCount}/${tryCountMax})`);
+            await sleep(tryDelay);
         }
-        throw error;
-    });
-    let currentJobs = workflowRunJobs.filter((job) => job.status === "in_progress");
-    if (currentJobs.length > 0) {
-        if (context.runnerId) {
-            currentJobs = currentJobs.filter((job) => job.runner_id === context.runnerId);
+        console.log('context.runnerName:', context.runnerName);
+        console.log('context.runnerId:', context.runnerId);
+        const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
+            ...context.repo,
+            run_id: context.runId,
+            attempt_number: context.runAttempt,
+        }).catch((error) => {
+            if (error.status === 403) {
+                throwPermissionError({ scope: 'actions', permission: 'read' }, error);
+            }
+            throw error;
+        });
+        console.log('context.job:', context.job);
+        console.log('Workflow Jobs: ' + JSON.stringify(workflowRunJobs
+            .filter((job) => job.status === "in_progress")
+            .map((job) => ({
+            match: job.runner_id === context.runnerId,
+            context_runner_id: context.runnerId,
+            runner_id: job.runner_id,
+            name: job.name,
+            status: job.status,
+        })), null, 2));
+        currentJobs = workflowRunJobs
+            .filter((job) => job.status === "in_progress")
+            .filter((job) => job.runner_id === context.runnerId);
+        console.log('Current Jobs: ' + JSON.stringify(currentJobs));
+    } while (currentJobs.length !== 1 && tryCount < 10);
+    if (currentJobs.length !== 1) {
+        if (currentJobs.length === 0) {
+            throw new Error(`Current job could not be found in workflow run.`);
         }
-        if (currentJobs.length > 1) {
-            currentJobs = currentJobs.filter((job) => job.name === absoluteJobName);
+        else {
+            throw new Error(`Current job could not be uniquely identified in workflow run.`);
         }
     }
-    if (currentJobs.length != 1) {
-        const workflowJobsDebug = 'Workflow Jobs: ' + JSON.stringify(workflowRunJobs.map((it) => ({
-            runner_id: it.runner_id,
-            name: it.name,
-            status: it.status,
-        })), null, 2);
-        if (currentJobs.length > 1) {
-            throw new Error(`Current job '${absoluteJobName}' could not be uniquely identified in workflow run.\n` +
-                workflowJobsDebug);
-        }
-        throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
-            workflowJobsDebug);
-    }
-    const jobObject = { ...currentJobs[0], };
-    return _jobObject = jobObject;
+    const currentJobObject = { ...currentJobs[0] };
+    return _currentJobObject = currentJobObject;
 }
-let _deploymentObject;
+// cache of getCurrentJob result
+let _currentDeploymentObject;
 /**
  * Get the current deployment from the workflow run
  * @returns the current deployment or undefined
  */
-async function getDeploymentObject(octokit) {
-    if (_deploymentObject)
-        return _deploymentObject;
-    const job = await getJobObject(octokit);
+async function getCurrentDeployment(octokit) {
+    if (_currentDeploymentObject)
+        return _currentDeploymentObject;
+    const currentJob = await getCurrentJob(octokit);
     // --- get deployments for current sha
     const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({
         ...context.repo,
@@ -45009,7 +44981,7 @@ async function getDeploymentObject(octokit) {
         return pathnameMatch &&
             pathnameMatch.groups?.repository === `${context.repo.owner}/${context.repo.repo}` &&
             pathnameMatch.groups?.run_id === context.runId.toString() &&
-            pathnameMatch.groups?.job_id === job.id.toString();
+            pathnameMatch.groups?.job_id === currentJob.id.toString();
     });
     if (!currentDeployment)
         return undefined;
@@ -45018,10 +44990,10 @@ async function getDeploymentObject(octokit) {
     `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`;
     const currentDeploymentWorkflowUrl = getWorkflowRunHtmlUrl(context);
     if (!currentDeployment.latestStatus) {
-        _throw(new Error('Missing deployment latestStatus'));
+        throw new Error('Missing deployment latestStatus');
     }
     if (!currentDeployment.latestEnvironment) {
-        _throw(new Error('Missing deployment latestEnvironment'));
+        throw new Error('Missing deployment latestEnvironment');
     }
     const deploymentObject = {
         ...currentDeployment,
@@ -45035,7 +45007,7 @@ async function getDeploymentObject(octokit) {
         environment: currentDeployment.latestEnvironment,
         environmentUrl: currentDeployment.latestStatus.environmentUrl || undefined,
     };
-    return _deploymentObject = deploymentObject;
+    return _currentDeploymentObject = deploymentObject;
 }
 /**
  * Throw a permission error
@@ -45077,7 +45049,7 @@ const action = () => run(async () => {
     const octokit = github.getOctokit(inputs.token);
     // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
     await sleep(2000);
-    await getJobObject(octokit).then((job) => {
+    await getCurrentJob(octokit).then((job) => {
         setOutputAndLog('run_id', job.run_id);
         setOutputAndLog('run_attempt', job.run_attempt);
         setOutputAndLog('run_number', context.runNumber);
@@ -45085,7 +45057,7 @@ const action = () => run(async () => {
         setOutputAndLog('job_id', job.id);
         setOutputAndLog('job_log_url', job.html_url || '');
     });
-    await getDeploymentObject(octokit).catch((error) => {
+    await getCurrentDeployment(octokit).catch((error) => {
         if (error instanceof PermissionError && error.scope === 'deployments' && error.permission === 'read') {
             core.debug('No permission to read deployment information.' +
                 ' Grant the "deployments: read" permission to workflow job, if needed.');

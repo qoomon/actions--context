@@ -2,7 +2,7 @@ import {z} from "zod";
 import YAML from "yaml";
 
 export type JsonLiteral = string | number | boolean | null
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions, @typescript-eslint/consistent-indexed-object-style
+// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 export type JsonObject = { [key: string]: Json };
 export type Json = JsonLiteral | JsonObject | Json[]
 export const LiteralSchema: z.ZodType<JsonLiteral> = z.union([z.string(), z.number(), z.boolean(), z.null()])

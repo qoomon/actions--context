@@ -15,8 +15,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: ./
-        with:
-          job-name: build name
 
       - run: |
           echo github.job: ${{ github.job }}
@@ -74,24 +72,12 @@ jobs:
       matrix:
         node-version: [ 22.x, 20.x ]
     uses: ./.github/workflows/example-reusable.yml
-    with:
-      # IMPORTANT ensure first value match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: job-with-reusable-workflow-with-matrix, ${{ toJSON(matrix) }}
 
   job-with-reusable-workflow-nested:
     uses: ./.github/workflows/example-reusable-nested.yml
-    with:
-      # IMPORTANT ensure first value match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: job-with-reusable-workflow-nested, ${{ toJSON(matrix) }}
 
   job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrs:
     strategy:
       matrix:
         node-version: [ 22.x, 20.x ]
     uses: ./.github/workflows/example-reusable.yml
-    with:
-      # IMPORTANT ensure first value match the surrounding job name
-      # IMPORTANT If the surrounding workflow is a reusable workflow itself, append ', ${{ inputs.workflow-context }}'
-      workflow-context: job-with-real-long-id-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrstuvwxyz-abcdefghijklmnopyrs, ${{ toJSON(matrix) }}
