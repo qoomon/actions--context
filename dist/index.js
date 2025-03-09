@@ -44835,6 +44835,8 @@ function enhancedContext() {
         (runAttempt ? `/attempts/${runAttempt}` : '');
     const runnerName = (external_node_process_default()).env.RUNNER_NAME
         ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
+    const runnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
+    const runnerId = runnerIdString ? parseInt(runnerIdString, 10) : undefined;
     const runnerTempDir = (external_node_process_default()).env.RUNNER_TEMP
         ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
     const additionalContext = {
@@ -44843,6 +44845,7 @@ function enhancedContext() {
         workflowSha,
         runAttempt,
         runUrl,
+        runnerId,
         runnerName,
         runnerTempDir,
     };
@@ -44924,22 +44927,27 @@ async function getJobObject(octokit) {
         }
         throw error;
     });
-    //In the case of truncated job name the only other shared identifier is the runner name
-    const currentJobs = workflowRunJobs
-        .filter((job) => job.name === absoluteJobName && job.status === "in_progress"
-        && (job.runner_name === "GitHub Actions" || job.runner_name === context.runnerName));
-    if (currentJobs.length === 0) {
-        throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
-            'If this action is used within a reusable workflow, ensure that ' +
-            'action input \'workflow-context\' is set to ${{ inputs.workflow-context }}' +
-            'and workflow input \'workflow-context\' was set to \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}\'' +
-            'or \'"CALLER_JOB_NAME", ${{ toJSON(matrix) }}, ${{ inputs.workflow-context }}\' in case of a nested workflow.');
+    let currentJobs = workflowRunJobs.filter((job) => job.status === "in_progress");
+    if (currentJobs.length > 0) {
+        if (context.runnerId) {
+            currentJobs = currentJobs.filter((job) => job.runner_id === context.runnerId);
+        }
+        if (currentJobs.length > 1) {
+            currentJobs = currentJobs.filter((job) => job.name === absoluteJobName);
+        }
     }
-    else if (currentJobs.length != 1) {
-        throw new Error(`Current job '${absoluteJobName}' returned multiple matches'.\n` +
-            'If this action is used within a reusable workflow, or matrix please ensure that the job name is unique.' +
-            'If the length of \'"CALLER_JOB_NAME" + ${{ toJSON(matrix) }}\' exceeds 100 characters' +
-            'Github Actions may have truncated it. Thus, potentially making it non unique. ');
+    if (currentJobs.length != 1) {
+        const workflowJobsDebug = 'Workflow Jobs: ' + JSON.stringify(workflowRunJobs.map((it) => ({
+            runner_id: it.runner_id,
+            name: it.name,
+            status: it.status,
+        })), null, 2);
+        if (currentJobs.length > 1) {
+            throw new Error(`Current job '${absoluteJobName}' could not be uniquely identified in workflow run.\n` +
+                workflowJobsDebug);
+        }
+        throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
+            workflowJobsDebug);
     }
     const jobObject = { ...currentJobs[0], };
     return _jobObject = jobObject;
