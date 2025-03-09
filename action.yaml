@@ -11,17 +11,6 @@ inputs:
     required: true
     default: '${{ github.token }}'
 
-  # --- Workarounds for missing GitHub Actions context variables ---
-  job-name:
-    default: '${{ github.job }}'
-  runner-name:
-    default: '${{ runner.name }}'
-  '#job-matrix':
-    description: 'DO NOT SET MANUALLY'
-    default: '${{ toJSON(matrix) }}'
-  workflow-context:
-    description: '<REUSABLE_WORKFLOW_JOB_NAME>, $ {{ toJSON(matrix) }}'
-
 outputs:
   job:
     description: The workflow job name of the current job.

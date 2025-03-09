@@ -44836,7 +44836,9 @@ function enhancedContext() {
     const runnerName = (external_node_process_default()).env.RUNNER_NAME
         ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
     const runnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
-    const runnerId = runnerIdString ? parseInt(runnerIdString, 10) : undefined;
+    let runnerId = runnerIdString ? parseInt(runnerIdString, 10) : undefined;
+    if (runnerId === 1)
+        runnerId = 21; // WORKAROUND
     const runnerTempDir = (external_node_process_default()).env.RUNNER_TEMP
         ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
     const additionalContext = {
@@ -44857,52 +44859,6 @@ function enhancedContext() {
         },
     });
 }
-function getAbsoluteJobName({ job, matrix, workflowContextChain }) {
-    let actualJobName = job;
-    if (matrix) {
-        const flatValues = getFlatValues(matrix);
-        if (flatValues.length > 0) {
-            actualJobName = `${actualJobName} (${flatValues.join(', ')})`;
-        }
-    }
-    // If the job name is too long, github truncates it and adds an ellipsis
-    if (actualJobName.length > 100) {
-        actualJobName = actualJobName.substring(0, 97) + '...';
-    }
-    workflowContextChain?.forEach((workflowContext) => {
-        const contextJob = getAbsoluteJobName(workflowContext);
-        actualJobName = `${contextJob} / ${actualJobName}`;
-    });
-    return actualJobName;
-}
-const JobMatrixParser = JsonParser.pipe(JsonObjectSchema.nullable());
-const WorkflowContextSchema = z.object({
-    job: z.string(),
-    matrix: JsonObjectSchema.nullable(),
-}).strict();
-const WorkflowContextParser = z.string()
-    .transform((str, ctx) => YamlParser.parse(`[${str}]`, ctx))
-    .pipe(z.array(z.union([z.string(), JsonObjectSchema]).nullable()))
-    .transform((contextChainArray, ctx) => {
-    const contextChain = [];
-    while (contextChainArray.length > 0) {
-        const job = contextChainArray.shift();
-        if (typeof job !== 'string') {
-            ctx.addIssue({
-                code: 'custom',
-                message: `Value must match the schema: "<JOB_NAME>", [<MATRIX_JSON>], [<JOB_NAME>", [<MATRIX_JSON>], ...]`,
-            });
-            return z.NEVER;
-        }
-        let matrix;
-        if (typeof contextChainArray[0] === 'object') {
-            matrix = contextChainArray.shift();
-        }
-        contextChain.push({ job, matrix });
-    }
-    return contextChain;
-})
-    .pipe(z.array(WorkflowContextSchema));
 let _jobObject;
 /**
  * Get the current job from the workflow run
@@ -44911,45 +44867,53 @@ let _jobObject;
 async function getJobObject(octokit) {
     if (_jobObject)
         return _jobObject;
-    const absoluteJobName = getAbsoluteJobName({
-        job: getInput('job-name', { required: true }),
-        matrix: getInput('#job-matrix', JobMatrixParser),
-        workflowContextChain: getInput('workflow-context', WorkflowContextParser),
-    });
-    console.error('absoluteJobName', absoluteJobName);
-    const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
-        ...context.repo,
-        run_id: context.runId,
-        attempt_number: context.runAttempt,
-    }).catch((error) => {
-        if (error.status === 403) {
-            throwPermissionError({ scope: 'actions', permission: 'read' }, error);
+    let currentJobs = [];
+    let tryCount = 0;
+    const tryCountMax = 10;
+    const tryDelay = 10000;
+    do {
+        tryCount++;
+        if (tryCount > 1) {
+            console.log(`Waiting for job available through GitHub API... (${tryCount}/${tryCountMax})`);
+            await sleep(tryDelay);
         }
-        throw error;
-    });
-    let currentJobs = workflowRunJobs.filter((job) => job.status === "in_progress");
-    if (currentJobs.length > 0) {
-        if (context.runnerId) {
-            currentJobs = currentJobs.filter((job) => job.runner_id === context.runnerId);
-        }
-        if (currentJobs.length > 1) {
-            currentJobs = currentJobs.filter((job) => job.name === absoluteJobName);
-        }
-    }
-    if (currentJobs.length != 1) {
-        const workflowJobsDebug = 'Workflow Jobs: ' + JSON.stringify(workflowRunJobs.map((it) => ({
+        console.log('context.runnerName:', context.runnerName);
+        console.log('context.runnerId:', context.runnerId);
+        const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
+            ...context.repo,
+            run_id: context.runId,
+            attempt_number: context.runAttempt,
+        }).catch((error) => {
+            if (error.status === 403) {
+                throwPermissionError({ scope: 'actions', permission: 'read' }, error);
+            }
+            throw error;
+        });
+        console.log('context.job:', context.job);
+        console.log('Workflow Jobs: ' + JSON.stringify(workflowRunJobs
+            .filter((job) => job.status === "in_progress")
+            //.filter((job) => job.name?.split('/')?.at(-1)?.trim()?.startsWith(context.job))
+            .map((it) => ({
             runner_id: it.runner_id,
             name: it.name,
             status: it.status,
-        })), null, 2);
+        })), null, 2));
+        currentJobs = workflowRunJobs
+            .filter((job) => job.status === "in_progress")
+            .filter((job) => job.runner_id == context.runnerId)
+            .filter((job) => {
+            const jobMatch = job.name?.split('/')?.at(-1)?.trim()?.startsWith(context.job);
+            console.log('jobMatch:', jobMatch, "job.name:", job.name);
+            return jobMatch;
+        });
+    } while (currentJobs.length !== 1 && tryCount < 10);
+    if (currentJobs.length !== 1) {
         if (currentJobs.length > 1) {
-            throw new Error(`Current job '${absoluteJobName}' could not be uniquely identified in workflow run.\n` +
-                workflowJobsDebug);
+            throw new Error(`Current job could not be uniquely identified in workflow run.`);
         }
-        throw new Error(`Current job '${absoluteJobName}' could not be found in workflow run.\n` +
-            workflowJobsDebug);
+        throw new Error(`Current job could not be found in workflow run.`);
     }
-    const jobObject = { ...currentJobs[0], };
+    const jobObject = { ...currentJobs[0] };
     return _jobObject = jobObject;
 }
 let _deploymentObject;
