@@ -44899,7 +44899,7 @@ async function getCurrentJob(octokit) {
             }
             return job.runner_name === context.runnerName;
         });
-    } while (currentJobs.length !== 1 && tryCount < 10);
+    } while (currentJobs.length !== 1 && tryCount < tryCountMax);
     if (currentJobs.length !== 1) {
         if (currentJobs.length === 0) {
             throw new Error(`Current job could not be found in workflow run.`);

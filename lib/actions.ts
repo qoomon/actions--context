@@ -251,7 +251,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
           }
           return job.runner_name === context.runnerName;
         });
-  } while (currentJobs.length !== 1 && tryCount < 10)
+  } while (currentJobs.length !== 1 && tryCount < tryCountMax)
 
   if (currentJobs.length !== 1) {
     if (currentJobs.length === 0) {
