@@ -5,8 +5,6 @@ This action provides an enhanced job context for GitHub Actions.
 > If you're missing a context value feel free to [open a feature request](https://github.com/qoomon/actions--context/issues)
 
 ### Usage
-> [!Important]
-> For usage within a reusable workflow, see [Usage within Reusable Workflows](#usage-within-reusable-workflows)
 ```yaml
 jobs:
   example:
