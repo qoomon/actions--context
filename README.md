@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: playground
     steps:
-      - uses: qoomon/actions--context@v2
+      - uses: qoomon/actions--context@v3
         id: context
 
       - run: |
