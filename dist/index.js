@@ -44836,6 +44836,7 @@ function enhancedContext() {
         ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
     const runnerId = (() => {
         if (runnerName === "GitHub Actions 1") {
+            // WORKAROUND For some reason the runner id for the runner named "GitHub Actions 1" is 21
             return 21;
         }
         else {
@@ -44876,17 +44877,16 @@ async function getCurrentJob(octokit) {
     if (_currentJobObject)
         return _currentJobObject;
     let currentJobs = [];
+    // retry until current job is found, because it may take some time until the job is available through the GitHub API
     let tryCount = 0;
     const tryCountMax = 10;
     const tryDelay = 1000;
     do {
         tryCount++;
         if (tryCount > 1) {
-            console.log(`Waiting for job available through GitHub API... (${tryCount}/${tryCountMax})`);
+            console.log(`Waiting for current job available through GitHub API... (${tryCount}/${tryCountMax})`);
             await sleep(tryDelay);
         }
-        console.log('context.runnerName:', context.runnerName);
-        console.log('context.runnerId:', context.runnerId);
         const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
             ...context.repo,
             run_id: context.runId,
@@ -44897,20 +44897,9 @@ async function getCurrentJob(octokit) {
             }
             throw error;
         });
-        console.log('context.job:', context.job);
-        console.log('Workflow Jobs: ' + JSON.stringify(workflowRunJobs
-            .filter((job) => job.status === "in_progress")
-            .map((job) => ({
-            match: job.runner_id === context.runnerId,
-            context_runner_id: context.runnerId,
-            runner_id: job.runner_id,
-            name: job.name,
-            status: job.status,
-        })), null, 2));
         currentJobs = workflowRunJobs
             .filter((job) => job.status === "in_progress")
             .filter((job) => job.runner_id === context.runnerId);
-        console.log('Current Jobs: ' + JSON.stringify(currentJobs));
     } while (currentJobs.length !== 1 && tryCount < 10);
     if (currentJobs.length !== 1) {
         if (currentJobs.length === 0) {
