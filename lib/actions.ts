@@ -178,17 +178,12 @@ function enhancedContext() {
 
   const runnerName = process.env.RUNNER_NAME
       ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
-  const runnerId = (() => {
-    if (runnerName === "GitHub Actions 1") {
-      // WORKAROUND For some reason the runner id for the runner named "GitHub Actions 1" is 21
-      return 21;
-    } else {
-      const runnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
-      if(!runnerIdString){
-        throw new Error(`Failed to parse runner id from runner name: ${runnerName}`);
-      }
-      return parseInt(runnerIdString, 10);
+  const potentialRunnerId = (() => {
+    const potentialRunnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
+    if (potentialRunnerIdString) {
+      return parseInt(potentialRunnerIdString, 10);
     }
+    return null;
   })();
   const runnerTempDir = process.env.RUNNER_TEMP
       ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
@@ -201,7 +196,7 @@ function enhancedContext() {
 
     runAttempt,
     runUrl,
-    runnerId,
+    potentialRunnerId,
     runnerName,
     runnerTempDir,
   }
@@ -250,7 +245,12 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
 
     currentJobs = workflowRunJobs
         .filter((job) => job.status === "in_progress")
-        .filter((job) => job.runner_id === context.runnerId);
+        .filter((job) => {
+          if(job.runner_name === "GitHub Actions") {
+            return job.runner_id === context.potentialRunnerId;
+          }
+          return job.runner_name === context.runnerName;
+        });
   } while (currentJobs.length !== 1 && tryCount < 10)
 
   if (currentJobs.length !== 1) {
