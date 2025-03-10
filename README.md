@@ -1,6 +1,6 @@
 # Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
-This action provides an enhanced job context for GitHub Actions.
+This action provides an enhanced job context for GitHub Actions e.g., job_id. (will also work with matrix jobs and/or within reusable workflows)
 > [!Note]
 > If you're missing a context value feel free to [open a feature request](https://github.com/qoomon/actions--context/issues)
 
