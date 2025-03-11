@@ -213,6 +213,9 @@ let _currentJobObject: Awaited<ReturnType<typeof getCurrentJob>>
 export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promise<typeof currentJobObject> {
   if (_currentJobObject) return _currentJobObject
 
+  let workflowRunJobs = [] as GetResponseDataTypeFromEndpointMethod<
+      typeof octokit.rest.actions.listJobsForWorkflowRunAttempt
+  >['jobs'];
   let currentJobs = [] as GetResponseDataTypeFromEndpointMethod<
       typeof octokit.rest.actions.listJobsForWorkflowRunAttempt
   >['jobs'];
@@ -223,11 +226,12 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
   const tryDelay = 1000;
   do {
     tryCount++
+    core.debug(`Try to get current job via api, attempt ${tryCount}/${tryCountMax}`)
     if (tryCount > 1) {
       await sleep(tryDelay);
     }
 
-    const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
+    workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
       ...context.repo,
       run_id: context.runId,
       attempt_number: context.runAttempt,
@@ -235,7 +239,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
       if (error.status === 403) {
         throwPermissionError({scope: 'actions', permission: 'read'}, error)
       }
-      throw error
+      throw error;
     })
 
     currentJobs = workflowRunJobs
@@ -247,9 +251,10 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
           }
           return job.runner_name === context.runnerName;
         });
-  } while (currentJobs.length !== 1 && tryCount < tryCountMax)
+  } while (currentJobs.length !== 1 && tryCount < tryCountMax);
 
   if (currentJobs.length !== 1) {
+    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(workflowRunJobs));
     if (currentJobs.length === 0) {
       throw new Error(`Current job could not be found in workflow run.`);
     } else {
@@ -257,7 +262,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     }
   }
 
-  const currentJobObject = {...currentJobs[0]}
+  const currentJobObject = {...currentJobs[0]};
   return _currentJobObject = currentJobObject;
 }
 

@@ -44865,6 +44865,7 @@ let _currentJobObject;
 async function getCurrentJob(octokit) {
     if (_currentJobObject)
         return _currentJobObject;
+    let workflowRunJobs = [];
     let currentJobs = [];
     // retry until current job is found, because it may take some time until the job is available through the GitHub API
     let tryCount = 0;
@@ -44872,10 +44873,11 @@ async function getCurrentJob(octokit) {
     const tryDelay = 1000;
     do {
         tryCount++;
+        core.debug(`Try to get current job via api, attempt ${tryCount}/${tryCountMax}`);
         if (tryCount > 1) {
             await sleep(tryDelay);
         }
-        const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
+        workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
             ...context.repo,
             run_id: context.runId,
             attempt_number: context.runAttempt,
@@ -44896,6 +44898,7 @@ async function getCurrentJob(octokit) {
         });
     } while (currentJobs.length !== 1 && tryCount < tryCountMax);
     if (currentJobs.length !== 1) {
+        core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(workflowRunJobs));
         if (currentJobs.length === 0) {
             throw new Error(`Current job could not be found in workflow run.`);
         }
