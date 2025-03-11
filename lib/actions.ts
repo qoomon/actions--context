@@ -178,13 +178,6 @@ function enhancedContext() {
 
   const runnerName = process.env.RUNNER_NAME
       ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
-  const potentialRunnerId = (() => {
-    const potentialRunnerIdString = runnerName.match(/(?<id>\d+)$/)?.groups?.id;
-    if (potentialRunnerIdString) {
-      return parseInt(potentialRunnerIdString, 10) + 1;
-    }
-    return null;
-  })();
   const runnerTempDir = process.env.RUNNER_TEMP
       ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
 
@@ -196,7 +189,6 @@ function enhancedContext() {
 
     runAttempt,
     runUrl,
-    potentialRunnerId,
     runnerName,
     runnerTempDir,
   }
@@ -247,7 +239,8 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
         .filter((job) => job.status === "in_progress")
         .filter((job) => {
           if(job.runner_name === "GitHub Actions") {
-            return job.runner_id === context.potentialRunnerId;
+            const contextRunnerId = parseInt(context.runnerName.match(/(?<id>\d+)$/)?.groups?.id ?? '0', 10);
+            return job.runner_id === contextRunnerId;
           }
           return job.runner_name === context.runnerName;
         });
