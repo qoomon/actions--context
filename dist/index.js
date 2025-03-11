@@ -44732,7 +44732,10 @@ function getWorkflowRunHtmlUrl(context) {
         (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
 }
 
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 ;// CONCATENATED MODULE: ./lib/actions.ts
+
 
 
 
@@ -45011,6 +45014,17 @@ class PermissionError extends Error {
         // Set the prototype explicitly.
         Object.setPrototypeOf(this, PermissionError.prototype);
     }
+}
+const JOB_STATE_FILE = (/* unused pure expression or super */ null && (`${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/\d*$/, '')}`));
+function addJobState(obj) {
+    fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
+}
+function getJobState() {
+    if (!fs.existsSync(JOB_STATE_FILE))
+        return [];
+    return fs.readFileSync(JOB_STATE_FILE).toString()
+        .split('\n').filter(line => line.trim().length > 0)
+        .map(line => JSON.parse(line));
 }
 
 // EXTERNAL MODULE: external "url"

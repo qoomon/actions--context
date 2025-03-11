@@ -9,7 +9,8 @@ import {Deployment} from '@octokit/graphql-schema';
 import {GitHub} from "@actions/github/lib/utils";
 import {getWorkflowRunHtmlUrl} from "./github.js";
 import YAML from "yaml";
-import {RestEndpointMethodTypes} from "@octokit/plugin-rest-endpoint-methods";
+import {GetResponseDataTypeFromEndpointMethod} from "@octokit/types";
+import fs from "node:fs";
 
 export const context = enhancedContext()
 
@@ -212,7 +213,10 @@ let _currentJobObject: Awaited<ReturnType<typeof getCurrentJob>>
 export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promise<typeof currentJobObject> {
   if (_currentJobObject) return _currentJobObject
 
-  let currentJobs = [] as WorkflowRunJob[];
+  let currentJobs = [] as GetResponseDataTypeFromEndpointMethod<
+      typeof octokit.rest.actions.listJobsForWorkflowRunAttempt
+  >['jobs'];
+
   // retry until current job is found, because it may take some time until the job is available through the GitHub API
   let tryCount = 0;
   const tryCountMax = 10;
@@ -388,5 +392,16 @@ export class PermissionError extends Error {
   }
 }
 
-// eslint-disable-next-line max-len
-type WorkflowRunJob = RestEndpointMethodTypes["actions"]["listJobsForWorkflowRunAttempt"]["response"]["data"]["jobs"][number]
+const JOB_STATE_FILE = `${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/\d*$/, '')}`
+
+export function addJobState<T>(obj: T) {
+  fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
+}
+
+export function getJobState<T>() {
+  if(!fs.existsSync(JOB_STATE_FILE)) return [];
+
+  return fs.readFileSync(JOB_STATE_FILE).toString()
+      .split('\n').filter(line => line.trim().length > 0)
+      .map(line => JSON.parse(line)) as T[];
+}
