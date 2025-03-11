@@ -44868,12 +44868,11 @@ async function getCurrentJob(octokit) {
     let currentJobs = [];
     // retry until current job is found, because it may take some time until the job is available through the GitHub API
     let tryCount = 0;
-    const tryCountMax = 10;
+    const tryCountMax = 30;
     const tryDelay = 1000;
     do {
         tryCount++;
         if (tryCount > 1) {
-            console.log(`Waiting for current job available through GitHub API... (${tryCount}/${tryCountMax})`);
             await sleep(tryDelay);
         }
         const workflowRunJobs = await octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
@@ -45015,7 +45014,8 @@ class PermissionError extends Error {
         Object.setPrototypeOf(this, PermissionError.prototype);
     }
 }
-const JOB_STATE_FILE = (/* unused pure expression or super */ null && (`${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/\d*$/, '')}`));
+// --- Job State Management ---------------------------------------------------
+const JOB_STATE_FILE = (/* unused pure expression or super */ null && (`${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/_\d*$/, '')}`));
 function addJobState(obj) {
     fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
 }

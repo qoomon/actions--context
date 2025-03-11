@@ -219,12 +219,11 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
 
   // retry until current job is found, because it may take some time until the job is available through the GitHub API
   let tryCount = 0;
-  const tryCountMax = 10;
+  const tryCountMax = 30;
   const tryDelay = 1000;
   do {
     tryCount++
     if (tryCount > 1) {
-      console.log(`Waiting for current job available through GitHub API... (${tryCount}/${tryCountMax})`);
       await sleep(tryDelay);
     }
 
@@ -392,7 +391,9 @@ export class PermissionError extends Error {
   }
 }
 
-const JOB_STATE_FILE = `${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/\d*$/, '')}`
+// --- Job State Management ---------------------------------------------------
+
+const JOB_STATE_FILE = `${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/_\d*$/, '')}`;
 
 export function addJobState<T>(obj: T) {
   fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
