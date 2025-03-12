@@ -236,7 +236,7 @@ export const context = (() => {
 })();
 
 if (core.isDebug()) {
-  core.debug(`github.context: ${JSON.stringify(context)}`);
+  core.debug(`github.context: ${JSON.stringify(context, null, 2)}`);
 }
 
 /**
@@ -258,7 +258,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     if (retryAttempt > 1) await sleep(retryDelay);
     core.debug(`Try to determine current job, attempt ${retryAttempt}/${retryMaxAttempts}`)
     const currentWorkflowRunJobs = await listJobsForCurrentWorkflowRun();
-    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(currentWorkflowRunJobs));
+    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(currentWorkflowRunJobs, null, 2));
     const currentJobs = currentWorkflowRunJobs
         .filter((job) => job.status === "in_progress")
         .filter((job) =>
@@ -267,7 +267,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
         );
     if(currentJobs.length === 1) {
       currentJob = currentJobs[0];
-      core.debug('job:' + JSON.stringify(currentJob));
+      core.debug('job:' + JSON.stringify(currentJob, null, 2));
     } else {
       if (currentJobs.length === 0) {
         core.debug('No matching job found in workflow run.')
