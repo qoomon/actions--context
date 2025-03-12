@@ -6,7 +6,7 @@ import * as process from 'node:process'
 import {sleep} from "./lib/common.js";
 import * as github from "@actions/github";
 
-export const action = () => run(async () => {
+export const action = run(async () => {
 
   const inputs = {
     token: getInput('token', {required: true}),
