@@ -1,4 +1,4 @@
-name: Release Action
+name: Release Action ${{ inputs.version }}
 
 on:
   workflow_dispatch:
