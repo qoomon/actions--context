@@ -40234,6 +40234,8 @@ __nccwpck_require__.d(__webpack_exports__, {
 
 // EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
 var core = __nccwpck_require__(7484);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/context.js
+var context = __nccwpck_require__(1648);
 ;// CONCATENATED MODULE: ./node_modules/zod/lib/index.mjs
 var util;
 (function (util) {
@@ -44699,43 +44701,9 @@ function _throw(error) {
     throw error;
 }
 
-// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
-var github = __nccwpck_require__(3228);
-;// CONCATENATED MODULE: ./lib/github.ts
-/**
- * Parse repository string to owner and repo
- * @param repository - repository string e.g. 'spongebob/sandbox'
- * @return object with owner and repo
- */
-function parseRepository(repository) {
-    const separatorIndex = repository.indexOf('/');
-    if (separatorIndex === -1)
-        throw Error(`Invalid repository format '${repository}'`);
-    return {
-        owner: repository.substring(0, separatorIndex),
-        repo: repository.substring(separatorIndex + 1),
-    };
-}
-async function getLatestDeploymentStatus(octokit, repository, deploymentId) {
-    return octokit.rest.repos.listDeploymentStatuses({
-        ...parseRepository(repository),
-        deployment_id: deploymentId,
-        per_page: 1,
-    }).then(({ data }) => {
-        if (data.length === 0)
-            return undefined;
-        return data[0];
-    });
-}
-function getWorkflowRunHtmlUrl(context) {
-    return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
-        (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
-}
-
 ;// CONCATENATED MODULE: external "node:fs"
 const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 ;// CONCATENATED MODULE: ./lib/actions.ts
-
 
 
 
@@ -44850,48 +44818,36 @@ class PermissionError extends Error {
     }
 }
 // --- Enhanced GitHub Action Context --------------------------------------------------
-/**
- * Enhanced GitHub context
- */
-const context = (() => {
-    const additionalContext = {
-        repository: `${github.context.repo.owner}/${github.context.repo.repo}`,
-        get workflowRef() {
-            return (external_node_process_default()).env.GITHUB_WORKFLOW_REF
-                ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));
-        },
-        get workflowSha() {
-            return (external_node_process_default()).env.GITHUB_WORKFLOW_SHA
-                ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
-        },
-        get runAttempt() {
-            return parseInt((external_node_process_default()).env.GITHUB_RUN_ATTEMPT
-                ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
-        },
-        get runUrl() {
-            return `${github.context.serverUrl}/${github.context.repo.owner}/${github.context.repo.repo}` +
-                `/actions/runs/${github.context.runId}` + (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
-        },
-        get runnerName() {
-            return (external_node_process_default()).env.RUNNER_NAME
-                ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
-        },
-        get runnerTempDir() {
-            return (external_node_process_default()).env.RUNNER_TEMP
-                ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
-        },
-    };
-    return new Proxy(github.context, {
-        get(context, prop) {
-            return prop in context
-                ? context[prop]
-                : additionalContext[prop];
-        },
-    });
-})();
-if (core.isDebug()) {
-    core.debug(`github.context: ${JSON.stringify(context, null, 2)}`);
+class EnhancedContext extends context.Context {
+    get repository() {
+        return `${this.repo.owner}/${this.repo.repo}`;
+    }
+    get workflowRef() {
+        return (external_node_process_default()).env.GITHUB_WORKFLOW_REF
+            ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));
+    }
+    get workflowSha() {
+        return (external_node_process_default()).env.GITHUB_WORKFLOW_SHA
+            ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
+    }
+    get runAttempt() {
+        return parseInt((external_node_process_default()).env.GITHUB_RUN_ATTEMPT
+            ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
+    }
+    get runUrl() {
+        return `${this.serverUrl}/${this.repository}` + `/actions/runs/${this.runId}` +
+            (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
+    }
+    get runnerName() {
+        return (external_node_process_default()).env.RUNNER_NAME
+            ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
+    }
+    get runnerTempDir() {
+        return (external_node_process_default()).env.RUNNER_TEMP
+            ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
+    }
 }
+const actions_context = new EnhancedContext();
 /**
  * Get the current job from the workflow run
  * @returns the current job
@@ -44899,8 +44855,8 @@ if (core.isDebug()) {
 async function getCurrentJob(octokit) {
     if (_currentJob)
         return _currentJob;
-    const githubRunnerNameMatch = context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/);
-    const runnerId = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
+    const githubRunnerNameMatch = actions_context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/);
+    const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
     let currentJob = null;
     // retry to determine current job, because it takes some time until the job is available through the GitHub API
     const retryMaxAttempts = 30, retryDelay = 1000;
@@ -44911,11 +44867,17 @@ async function getCurrentJob(octokit) {
             await sleep(retryDelay);
         core.debug(`Try to determine current job, attempt ${retryAttempt}/${retryMaxAttempts}`);
         const currentWorkflowRunJobs = await listJobsForCurrentWorkflowRun();
-        core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(currentWorkflowRunJobs, null, 2));
+        core.debug(`runner_name: ${actions_context.runnerName}\n` + 'workflow_run_jobs:' +
+            JSON.stringify(currentWorkflowRunJobs, null, 2));
         const currentJobs = currentWorkflowRunJobs
             .filter((job) => job.status === "in_progress")
-            .filter((job) => (job.runner_name === context.runnerName) ||
-            (job.runner_name === "GitHub Actions" && job.runner_id === runnerId));
+            .filter((job) => {
+            // job.runner_group_id 0 represents the GitHub Actions hosted runners
+            if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
+                return job.runner_id === runnerNumber;
+            }
+            return job.runner_name === actions_context.runnerName;
+        });
         if (currentJobs.length === 1) {
             currentJob = currentJobs[0];
             core.debug('job:' + JSON.stringify(currentJob, null, 2));
@@ -44938,9 +44900,9 @@ async function getCurrentJob(octokit) {
     return _currentJob = currentJobObject;
     async function listJobsForCurrentWorkflowRun() {
         return octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
-            ...context.repo,
-            run_id: context.runId,
-            attempt_number: context.runAttempt,
+            ...actions_context.repo,
+            run_id: actions_context.runId,
+            attempt_number: actions_context.runAttempt,
         }).catch((error) => {
             if (error.status === 403) {
                 throwPermissionError({ scope: 'actions', permission: 'read' }, error);
@@ -44959,8 +44921,8 @@ async function getCurrentDeployment(octokit) {
     const currentJob = await getCurrentJob(octokit);
     // --- get deployments for current sha
     const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({
-        ...context.repo,
-        sha: context.sha,
+        ...actions_context.repo,
+        sha: actions_context.sha,
         task: 'deploy',
         per_page: 100,
     }).catch((error) => {
@@ -44991,28 +44953,28 @@ async function getCurrentDeployment(octokit) {
         ids: potentialDeploymentsFromRestApi.map(({ node_id }) => node_id),
     }).then(({ nodes: deployments }) => deployments
         // filter is probably not needed due to check log url to match run id and job id
-        .filter((deployment) => deployment.commitOid === context.sha)
+        .filter((deployment) => deployment.commitOid === actions_context.sha)
         .filter((deployment) => deployment.task === 'deploy')
         .filter((deployment) => deployment.state === 'IN_PROGRESS'));
     const currentDeployment = potentialDeploymentsFromGraphqlApi.find((deployment) => {
         if (!deployment.latestStatus?.logUrl)
             return false;
         const logUrl = new URL(deployment.latestStatus.logUrl);
-        if (logUrl.origin !== context.serverUrl)
+        if (logUrl.origin !== actions_context.serverUrl)
             return false;
         const pathnameMatch = logUrl.pathname
             .match(/\/(?<repository>[^/]+\/[^/]+)\/actions\/runs\/(?<run_id>[^/]+)\/job\/(?<job_id>[^/]+)/);
         return pathnameMatch &&
-            pathnameMatch.groups?.repository === `${context.repo.owner}/${context.repo.repo}` &&
-            pathnameMatch.groups?.run_id === context.runId.toString() &&
+            pathnameMatch.groups?.repository === `${actions_context.repo.owner}/${actions_context.repo.repo}` &&
+            pathnameMatch.groups?.run_id === actions_context.runId.toString() &&
             pathnameMatch.groups?.job_id === currentJob.id.toString();
     });
     if (!currentDeployment)
         return undefined;
     const currentDeploymentUrl = 
     // eslint-disable-next-line max-len
-    `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`;
-    const currentDeploymentWorkflowUrl = getWorkflowRunHtmlUrl(context);
+    `${actions_context.serverUrl}/${actions_context.repo.owner}/${actions_context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`;
+    const currentDeploymentWorkflowUrl = buildWorkflowRunHtmlUrl(actions_context);
     if (!currentDeployment.latestStatus) {
         throw new Error('Missing deployment latestStatus');
     }
@@ -45032,9 +44994,13 @@ async function getCurrentDeployment(octokit) {
         environmentUrl: currentDeployment.latestStatus.environmentUrl || undefined,
     };
     return _currentDeployment = currentDeploymentObject;
+    function buildWorkflowRunHtmlUrl(context) {
+        return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
+            (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
+    }
 }
 // --- Job State Management ---------------------------------------------------
-const JOB_STATE_FILE = (/* unused pure expression or super */ null && (`${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/_\d*$/, '')}`));
+const JOB_STATE_FILE = (/* unused pure expression or super */ null && (`${actions_context.runnerTempDir ?? '/tmp'}/${actions_context.action.replace(/_\d*$/, '')}`));
 function addJobState(obj) {
     fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
 }
@@ -45048,6 +45014,8 @@ function getJobState() {
 
 // EXTERNAL MODULE: external "url"
 var external_url_ = __nccwpck_require__(7016);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var github = __nccwpck_require__(3228);
 ;// CONCATENATED MODULE: ./index.ts
 
 
@@ -45066,7 +45034,7 @@ const action = run(async () => {
     await getCurrentJob(octokit).then((job) => {
         setOutputAndLog('run_id', job.run_id);
         setOutputAndLog('run_attempt', job.run_attempt);
-        setOutputAndLog('run_number', context.runNumber);
+        setOutputAndLog('run_number', actions_context.runNumber);
         setOutputAndLog('job', job.name);
         setOutputAndLog('job_id', job.id);
         setOutputAndLog('job_log_url', job.html_url || '');

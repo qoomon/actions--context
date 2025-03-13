@@ -1,13 +1,11 @@
 import * as core from '@actions/core'
 import {InputOptions} from '@actions/core'
-import {z, ZodSchema} from 'zod'
+import {GitHub} from "@actions/github/lib/utils";
 import {Context} from '@actions/github/lib/context';
+import {Deployment} from '@octokit/graphql-schema';
+import {z, ZodSchema} from 'zod'
 import process from 'node:process';
 import {_throw, sleep} from './common.js';
-import * as github from '@actions/github';
-import {Deployment} from '@octokit/graphql-schema';
-import {GitHub} from "@actions/github/lib/utils";
-import {getWorkflowRunHtmlUrl} from "./github.js";
 import YAML from "yaml";
 import fs from "node:fs";
 
@@ -191,53 +189,44 @@ export class PermissionError extends Error {
 
 // --- Enhanced GitHub Action Context --------------------------------------------------
 
-/**
- * Enhanced GitHub context
- */
-export const context = (() => {
-  const additionalContext = {
-    repository: `${github.context.repo.owner}/${github.context.repo.repo}`,
+class EnhancedContext extends Context {
 
-    get workflowRef() {
-      return process.env.GITHUB_WORKFLOW_REF
-          ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));
-    },
-    get workflowSha() {
-      return process.env.GITHUB_WORKFLOW_SHA
-          ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
-    },
-
-    get runAttempt() {
-      return parseInt(process.env.GITHUB_RUN_ATTEMPT
-          ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
-    },
-    get runUrl() {
-      return `${github.context.serverUrl}/${github.context.repo.owner}/${github.context.repo.repo}` +
-          `/actions/runs/${github.context.runId}` + (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
-    },
-
-    get runnerName() {
-      return process.env.RUNNER_NAME
-          ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
-    },
-    get runnerTempDir() {
-      return process.env.RUNNER_TEMP
-          ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
-    },
+  get repository() {
+    return `${this.repo.owner}/${this.repo.repo}`;
   }
 
-  return new Proxy(github.context, {
-    get(context: Context, prop) {
-      return prop in context
-          ? context[prop as keyof Context]
-          : additionalContext[prop as keyof typeof additionalContext];
-    },
-  }) as Context & typeof additionalContext
-})();
+  get workflowRef() {
+    return process.env.GITHUB_WORKFLOW_REF
+        ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));
+  }
 
-if (core.isDebug()) {
-  core.debug(`github.context: ${JSON.stringify(context, null, 2)}`);
+  get workflowSha() {
+    return process.env.GITHUB_WORKFLOW_SHA
+        ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
+  }
+
+  get runAttempt() {
+    return parseInt(process.env.GITHUB_RUN_ATTEMPT
+        ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
+  }
+
+  get runUrl() {
+    return `${this.serverUrl}/${this.repository}` + `/actions/runs/${this.runId}` +
+        (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
+  }
+
+  get runnerName() {
+    return process.env.RUNNER_NAME
+        ?? _throw(new Error('Missing environment variable: RUNNER_NAME'));
+  }
+
+  get runnerTempDir() {
+    return process.env.RUNNER_TEMP
+        ?? _throw(new Error('Missing environment variable: RUNNER_TEMP'));
+  }
 }
+
+export const context = new EnhancedContext();
 
 /**
  * Get the current job from the workflow run
@@ -247,7 +236,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
   if (_currentJob) return _currentJob
 
   const githubRunnerNameMatch = context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/)
-  const runnerId = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
+  const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
 
   let currentJob: Awaited<ReturnType<typeof listJobsForCurrentWorkflowRun>>[number] | null = null;
   // retry to determine current job, because it takes some time until the job is available through the GitHub API
@@ -258,14 +247,18 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     if (retryAttempt > 1) await sleep(retryDelay);
     core.debug(`Try to determine current job, attempt ${retryAttempt}/${retryMaxAttempts}`)
     const currentWorkflowRunJobs = await listJobsForCurrentWorkflowRun();
-    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' + JSON.stringify(currentWorkflowRunJobs, null, 2));
+    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' +
+        JSON.stringify(currentWorkflowRunJobs, null, 2));
     const currentJobs = currentWorkflowRunJobs
         .filter((job) => job.status === "in_progress")
-        .filter((job) =>
-            (job.runner_name === context.runnerName) ||
-            (job.runner_name === "GitHub Actions" && job.runner_id === runnerId)
-        );
-    if(currentJobs.length === 1) {
+        .filter((job) => {
+          // job.runner_group_id 0 represents the GitHub Actions hosted runners
+          if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
+              return job.runner_id === runnerNumber;
+          }
+          return job.runner_name === context.runnerName;
+        });
+    if (currentJobs.length === 1) {
       currentJob = currentJobs[0];
       core.debug('job:' + JSON.stringify(currentJob, null, 2));
     } else {
@@ -277,7 +270,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     }
   } while (!currentJob && retryAttempt < retryMaxAttempts);
 
-  if(!currentJob){
+  if (!currentJob) {
     throw new Error(`Current job could not be determined.`);
   }
 
@@ -371,7 +364,7 @@ export async function getCurrentDeployment(
   const currentDeploymentUrl =
       // eslint-disable-next-line max-len
       `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/deployments/${currentDeployment.latestEnvironment}`
-  const currentDeploymentWorkflowUrl = getWorkflowRunHtmlUrl(context);
+  const currentDeploymentWorkflowUrl = buildWorkflowRunHtmlUrl(context);
 
   if (!currentDeployment.latestStatus) {
     throw new Error('Missing deployment latestStatus');
@@ -393,6 +386,16 @@ export async function getCurrentDeployment(
     environmentUrl: currentDeployment.latestStatus.environmentUrl as string || undefined,
   }
   return _currentDeployment = currentDeploymentObject
+
+  function buildWorkflowRunHtmlUrl(context: {
+    serverUrl: string,
+    repo: { owner: string; repo: string };
+    runId: number,
+    runAttempt?: number
+  }) {
+    return `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}` +
+        (context.runAttempt ? `/attempts/${context.runAttempt}` : '');
+  }
 }
 
 // --- Job State Management ---------------------------------------------------
