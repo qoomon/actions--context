@@ -18,12 +18,26 @@ export const action = run(async () => {
   await sleep(2000)
 
   await getCurrentJob(octokit).then((job) => {
-    setOutputAndLog('run_id', job.run_id)
-    setOutputAndLog('run_attempt', job.run_attempt)
-    setOutputAndLog('run_number', context.runNumber)
-    setOutputAndLog('job', job.name)
-    setOutputAndLog('job_id', job.id)
-    setOutputAndLog('job_log_url', job.html_url || '')
+    if(core.isDebug()){
+      core.debug(JSON.stringify(job));
+    }
+
+    core.setOutput('run_id', job.run_id)
+    core.setOutput('run_attempt', job.run_attempt)
+    core.setOutput('run_number', context.runNumber)
+    core.setOutput('run_url', context.runUrl)
+    core.exportVariable('GITHUB_RUN_URL', job.runner_id ?? '')
+
+    core.setOutput('runner_name', context.runnerName)
+    core.setOutput('runner_id', job.runner_id ?? '')
+    core.exportVariable('RUNNER_ID', job.runner_id ?? '')
+
+    core.setOutput('job_name', job.name)
+    core.exportVariable('GITHUB_JOB_NAME', job.name ?? '')
+    core.setOutput('job_id', job.id)
+    core.exportVariable('GITHUB_JOB_ID', job.id)
+    core.setOutput('job_url', job.html_url ?? '')
+    core.exportVariable('GITHUB_JOB_URL', job.html_url ?? '')
   });
 
   await getCurrentDeployment(octokit).catch((error) => {
@@ -35,22 +49,22 @@ export const action = run(async () => {
     throw error
   }).then((deployment) => {
     if (deployment) {
-      setOutputAndLog('environment', deployment.environment)
-      setOutputAndLog('environment_url', deployment.environmentUrl)
-      setOutputAndLog('deployment_id', deployment.id)
-      setOutputAndLog('deployment_url', deployment.url)
-      setOutputAndLog('deployment_workflow_url', deployment.workflowUrl)
-      setOutputAndLog('deployment_log_url', deployment.logUrl)
+      if(core.isDebug()){
+        core.debug(JSON.stringify(deployment));
+      }
+
+      core.setOutput('environment', deployment.environment)
+      core.exportVariable('GITHUB_ENVIRONMENT', deployment.environment)
+      core.setOutput('environment_url', deployment.environmentUrl)
+      core.exportVariable('GITHUB_ENVIRONMENT_URL', deployment.environmentUrl)
+
+      core.setOutput('deployment_id', deployment.id)
+      core.exportVariable('GITHUB_DEPLOYMENT_ID', deployment.id)
+      core.setOutput('deployment_url', deployment.url)
+      core.exportVariable('GITHUB_DEPLOYMENT_URL', deployment.url)
     }
   })
 })
-
-function setOutputAndLog(name: string, value: string | number | undefined) {
-  core.setOutput(name, value)
-  if (value !== undefined) {
-    core.info(`output => ${name}: ${value}`)
-  }
-}
 
 // --- main ---
 

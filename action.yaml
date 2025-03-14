@@ -12,12 +12,12 @@ inputs:
     default: '${{ github.token }}'
 
 outputs:
-  job:
+  job_name:
     description: The workflow job name of the current job.
   job_id:
     description: The workflow run job id of the current job.
-  job_log_url:
-    description: The HTML url of the job log for the current job.
+  job_url:
+    description: The HTML url of the job of the current job.
 
   run_id:
     description: The workflow run id of the current job.
@@ -35,10 +35,11 @@ outputs:
     description: The deployment id of the current job.
   deployment_url:
     description: The deployment HTML url of the current job.
-  deployment_workflow_url:
-    description: The deployment workflow HTML url of the current job.
-  deployment_log_url:
-    description: The deployment log HTML url of the current job.
+
+  runner_name:
+    description: The runner name of the current job.
+  runner_id:
+    description: The runner id of the current job.
 
 runs:
   using: 'node20'
