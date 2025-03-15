@@ -52,11 +52,11 @@ jobs:
 ### Enhanced GitHub Actions Job Context as Action Outputs Variables
 ```yaml
 job_name:
-  description: The workflow job name of the current job.
+  description: The workflow run job name of the current job.
 job_id:
   description: The workflow run job id of the current job.
 job_url:
-  description: The HTML url of the job of the current job.
+  description: The workflow run jub HTML url of the current job.
 
 run_id:
   description: The workflow run id of the current job.
@@ -65,12 +65,12 @@ run_attempt:
 run_number:
   description: The workflow run number of the current job.
 run_url:
-  description: The HTML url of the job of the current workflow run.
+  description: The workflow run HTML url of the current job.
 
 environment:
-  description: The environment of the current job.
+  description: The job environment of the current job.
 environment_url:
-  description: The environment HTML url of the current job.
+  description: The job environment HTML url of the current job.
 
 deployment_id:
   description: The deployment id of the current job.
