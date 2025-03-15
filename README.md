@@ -1,6 +1,7 @@
 # Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
-This action provides an enhanced job context for GitHub Actions e.g., job_id, environment, deployment_id, and more.
+This action provides an enhanced job context for GitHub Actions with additional informations like job_id, environment, deployment_id, and more.
+Those informations are not provided by the default [contextual GitHub Actions informations](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)
 
 
 > [!Note]
@@ -24,7 +25,7 @@ jobs:
           echo "Job Logs: ${{ steps.context.outputs.job_log_url }}"
 ```
 
-### Exported Variables
+### Exported Variables in Addition to [Default GitHub Actions Environment Variables](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables)
 - `GITHUB_RUN_URL`
 
 - `GITHUB_JOB_NAME`
