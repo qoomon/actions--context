@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: playground
     steps:
-      - uses: qoomon/actions--context@v3
+      - uses: qoomon/actions--context@v4
 
       - run: |
           echo "Job Log URL: ${GITHUB_JOB_URL}"
