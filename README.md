@@ -1,6 +1,6 @@
 # Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
-In addition to the [default contextual GitHub Actions informations](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs) this action provides additinal contextual job informations like the current **job id**, **environment**, **deployment url** and more.
+In addition to the [default GitHub Actions environment Variables](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables) this action provides additinal contextual job informations like the current **job id**, **environment**, **deployment url** and more.
 
 > [!Note]
 > This action also works with matrix jobs as well within reusable workflows!
@@ -20,7 +20,7 @@ jobs:
           echo "Deployment URL: ${GITHUB_DEPLOYMENT_URL}"
 ```
 
-### Exported Variables in Addition to [Default GitHub Actions Environment Variables](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables)
+### Additional Environemt Variables variables)
 - `GITHUB_RUN_URL`
 
 - `GITHUB_JOB_NAME`
