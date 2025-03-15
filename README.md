@@ -15,8 +15,8 @@ jobs:
       - uses: qoomon/actions--context@v4
 
       - run: |
-          echo "Job Log URL: ${GITHUB_JOB_URL}"
-          echo "Environment: ${GITHUB_ENVIRONMENT}"
+          echo "Job Log URL:    ${GITHUB_JOB_URL}"
+          echo "Environment:    ${GITHUB_ENVIRONMENT}"
           echo "Deployment URL: ${GITHUB_DEPLOYMENT_URL}"
 ```
 
