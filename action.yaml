@@ -25,6 +25,8 @@ outputs:
     description: The workflow run attempt of the current job.
   run_number:
     description: The workflow run number of the current job. Same as `github.run_number`.
+  run_url:
+    description: The HTML url of the job of the current workflow run.
 
   environment:
     description: The environment of the current job.
