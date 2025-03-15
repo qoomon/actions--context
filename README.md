@@ -1,6 +1,11 @@
 # Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
-This action provides additinal [contextual job informations](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables) like the current **job id**, **environment**, **deployment url** and more.
+This action provides additinal contextual job informations like the current **job id**, **environment**, **deployment url** and more.
+
+<sup>[Default GitHub Actions Environment Variables](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables),</sup> 
+<sup>[Default GitHub Actions Contexts](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs)</sup>
+
+
 
 > [!Note]
 > This action also works with matrix jobs as well within reusable workflows!
@@ -20,8 +25,9 @@ jobs:
           echo "Deployment URL: ${GITHUB_DEPLOYMENT_URL}"
 ```
 
-### Additional Environemt Variables variables)
+### Additional GitHub Actions Environemt Variables 
 - `GITHUB_RUN_URL`
+  - The HTML url of the job of the current workflow run.
 
 - `GITHUB_JOB_NAME`
   - The full workflow job name of the current job.`
@@ -43,37 +49,38 @@ jobs:
 - `RUNNER_ID`
   - The runner id of the current job.
 
-### Outputs
+### Enhanced GitHub Actions Job Context as Action Outputs Variables
 ```yaml
-outputs:
-  job_name:
-    description: The workflow job name of the current job.
-  job_id:
-    description: The workflow run job id of the current job.
-  job_url:
-    description: The HTML url of the job of the current job.
+job_name:
+  description: The workflow job name of the current job.
+job_id:
+  description: The workflow run job id of the current job.
+job_url:
+  description: The HTML url of the job of the current job.
 
-  run_id:
-    description: The workflow run id of the current job.
-  run_attempt:
-    description: The workflow run attempt of the current job.
-  run_number:
-    description: The workflow run number of the current job. Same as `github.run_number`.
+run_id:
+  description: The workflow run id of the current job.
+run_attempt:
+  description: The workflow run attempt of the current job.
+run_number:
+  description: The workflow run number of the current job.
+run_url:
+  description: The HTML url of the job of the current workflow run.
 
-  environment:
-    description: The environment of the current job.
-  environment_url:
-    description: The environment HTML url of the current job.
+environment:
+  description: The environment of the current job.
+environment_url:
+  description: The environment HTML url of the current job.
 
-  deployment_id:
-    description: The deployment id of the current job.
-  deployment_url:
-    description: The deployment HTML url of the current job.
+deployment_id:
+  description: The deployment id of the current job.
+deployment_url:
+  description: The deployment HTML url of the current job.
 
-  runner_name:
-    description: The runner name of the current job.
-  runner_id:
-    description: The runner id of the current job.
+runner_name:
+  description: The runner name of the current job.
+runner_id:
+  description: The runner id of the current job.
 ```
 
 ---
