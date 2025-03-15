@@ -1,6 +1,6 @@
 # Enhanced Job Context &nbsp; [![Actions](https://img.shields.io/badge/qoomon-GitHub%20Actions-blue)](https://github.com/qoomon/actions)
 
-In addition to the [default contextual GitHub Actions informations](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs) this action provides contextual job informations like the current job id, environment, deployment url, and more.
+In addition to the [default contextual GitHub Actions informations](https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs) this action provides additinal contextual job informations like the current **job id**, **environment**, **deployment url** and more.
 
 > [!Note]
 > This action also works with matrix jobs as well within reusable workflows!
