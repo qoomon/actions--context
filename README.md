@@ -27,14 +27,14 @@ jobs:
 
 ### Additional GitHub Actions Environemt Variables 
 - `GITHUB_RUN_URL`
-  - The HTML url of the job of the current workflow run.
+  - The workflow run HTML url of the current job.
 
 - `GITHUB_JOB_NAME`
-  - The full workflow job name of the current job.`
+  - The workflow run job name of the current job.
 - `GITHUB_JOB_ID`
   - The workflow run job id of the current job.
 - `GITHUB_JOB_URL`
-  - The HTML url of the job of the current job.
+  - The workflow run jub HTML url of the current job.
 
 - `GITHUB_ENVIRONMENT`
   - The environment of the current job.
