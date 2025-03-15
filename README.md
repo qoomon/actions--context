@@ -8,7 +8,7 @@ This action provides additinal contextual job informations like the current **jo
 
 
 > [!Note]
-> This action also works with matrix jobs as well within reusable workflows!
+> This action also works with matrix jobs as well as within reusable workflows!
 
 ### Usage
 ```yaml
