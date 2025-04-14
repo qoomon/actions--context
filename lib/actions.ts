@@ -250,7 +250,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' +
         JSON.stringify(currentWorkflowRunJobs, null, 2));
     const currentJobs = currentWorkflowRunJobs
-        .filter((job) => job.status === "in_progress")
+        .filter((job) => job.status === "in_progress" || job.status === "queued")
         .filter((job) => {
           // job.runner_group_id 0 represents the GitHub Actions hosted runners
           if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
