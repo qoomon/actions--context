@@ -254,7 +254,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
         .filter((job) => {
           // job.runner_group_id 0 represents the GitHub Actions hosted runners
           if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
-              return job.runner_id === runnerNumber;
+            return job.runner_id === runnerNumber;
           }
           return job.runner_name === context.runnerName;
         });
