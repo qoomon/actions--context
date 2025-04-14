@@ -44867,14 +44867,15 @@ const actions_context = new EnhancedContext();
  * Get the current job from the workflow run
  * @returns the current job
  */
-async function getCurrentJob(octokit) {
+async function getCurrentJob(octokit, inputs) {
     if (_currentJob)
         return _currentJob;
     const githubRunnerNameMatch = actions_context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/);
     const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
     let currentJob = null;
     // retry to determine current job, because it takes some time until the job is available through the GitHub API
-    const retryMaxAttempts = 30, retryDelay = 1000;
+    const retryMaxAttempts = inputs.retryMaxAttemps, retryDelay = inputs.retryDelay;
+    core.debug(`retryMaxAttempts: ${retryMaxAttempts}, retryDelay: ${retryDelay}`);
     let retryAttempt = 0;
     do {
         retryAttempt++;
@@ -44930,10 +44931,10 @@ async function getCurrentJob(octokit) {
  * Get the current deployment from the workflow run
  * @returns the current deployment or undefined
  */
-async function getCurrentDeployment(octokit) {
+async function getCurrentDeployment(octokit, inputs) {
     if (_currentDeployment)
         return _currentDeployment;
-    const currentJob = await getCurrentJob(octokit);
+    const currentJob = await getCurrentJob(octokit, inputs);
     // --- get deployments for current sha
     const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({
         ...actions_context.repo,
@@ -45042,11 +45043,16 @@ var github = __nccwpck_require__(3228);
 const action = run(async () => {
     const inputs = {
         token: getInput('token', { required: true }),
+        retryMaxAttemps: Number(getInput('retry_max_attempts', { required: false, trimWhitespace: true })),
+        retryDelay: Number(getInput('retry_delay', { required: false, trimWhitespace: true })),
     };
+    if (isNaN(inputs.retryMaxAttemps) || isNaN(inputs.retryDelay)) {
+        core.setFailed(`Invalid retry_max_attempts '${inputs.retryMaxAttemps}' or retry_delay '${inputs.retryDelay}'`);
+    }
     const octokit = github.getOctokit(inputs.token);
     // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
     await sleep(2000);
-    await getCurrentJob(octokit).then((job) => {
+    await getCurrentJob(octokit, inputs).then((job) => {
         if (core.isDebug()) {
             core.debug(JSON.stringify(job));
         }
@@ -45065,7 +45071,7 @@ const action = run(async () => {
         core.setOutput('job_url', job.html_url ?? '');
         core.exportVariable('GITHUB_JOB_URL', job.html_url ?? '');
     });
-    await getCurrentDeployment(octokit).catch((error) => {
+    await getCurrentDeployment(octokit, inputs).catch((error) => {
         if (error instanceof PermissionError && error.scope === 'deployments' && error.permission === 'read') {
             core.debug('No permission to read deployment information.' +
                 ' Grant the "deployments: read" permission to workflow job, if needed.');
