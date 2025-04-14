@@ -3,13 +3,20 @@ import {context, getCurrentDeployment, getCurrentJob, getInput, PermissionError,
 // see https://github.com/actions/toolkit for more GitHub actions libraries
 import {fileURLToPath} from 'url'
 import * as process from 'node:process'
-import {sleep} from "./lib/common.js";
+import {GitHubInputs, sleep} from "./lib/common.js";
 import * as github from "@actions/github";
+
 
 export const action = run(async () => {
 
-  const inputs = {
+  const inputs: GitHubInputs = {
     token: getInput('token', {required: true}),
+    retryMaxAttemps: Number(getInput('retry_max_attempts', {required: false, trimWhitespace: true})),
+    retryDelay: Number(getInput('retry_delay', {required: false, trimWhitespace: true})),
+  }
+
+  if (isNaN(inputs.retryMaxAttemps) || isNaN(inputs.retryDelay)) {
+    core.setFailed(`Invalid retry_max_attempts '${inputs.retryMaxAttemps}' or retry_delay '${inputs.retryDelay}'`)
   }
 
   const octokit = github.getOctokit(inputs.token);
@@ -17,7 +24,7 @@ export const action = run(async () => {
   // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
   await sleep(2000)
 
-  await getCurrentJob(octokit).then((job) => {
+  await getCurrentJob(octokit, inputs).then((job) => {
     if(core.isDebug()){
       core.debug(JSON.stringify(job));
     }
@@ -40,7 +47,7 @@ export const action = run(async () => {
     core.exportVariable('GITHUB_JOB_URL', job.html_url ?? '')
   });
 
-  await getCurrentDeployment(octokit).catch((error) => {
+  await getCurrentDeployment(octokit, inputs).catch((error) => {
     if (error instanceof PermissionError && error.scope === 'deployments' && error.permission === 'read') {
       core.debug('No permission to read deployment information.' +
           ' Grant the "deployments: read" permission to workflow job, if needed.')

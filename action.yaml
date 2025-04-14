@@ -10,6 +10,14 @@ inputs:
     description: 'A GitHub access token'
     required: true
     default: '${{ github.token }}'
+  retry_max_attempts:
+    description: "Define number of retry attempts to fetch job info from Github API"
+    required: false
+    default: '30'
+  retry_delay:
+    description: "Define the delay time between each GitHub API call for fetch the job info"
+    required: false
+    default: '1000'
 
 outputs:
   job_name:
