@@ -5,7 +5,7 @@ import {Context} from '@actions/github/lib/context';
 import {Deployment} from '@octokit/graphql-schema';
 import {z, ZodSchema} from 'zod'
 import process from 'node:process';
-import {_throw, sleep} from './common.js';
+import {_throw, GitHubInputs, sleep} from './common.js';
 import YAML from "yaml";
 import fs from "node:fs";
 
@@ -232,7 +232,7 @@ export const context = new EnhancedContext();
  * Get the current job from the workflow run
  * @returns the current job
  */
-export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promise<typeof currentJobObject> {
+export async function getCurrentJob(octokit: InstanceType<typeof GitHub>, inputs: GitHubInputs): Promise<typeof currentJobObject> {
   if (_currentJob) return _currentJob
 
   const githubRunnerNameMatch = context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/)
@@ -240,7 +240,8 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
 
   let currentJob: Awaited<ReturnType<typeof listJobsForCurrentWorkflowRun>>[number] | null = null;
   // retry to determine current job, because it takes some time until the job is available through the GitHub API
-  const retryMaxAttempts = 30, retryDelay = 1000;
+  const retryMaxAttempts = inputs.retryMaxAttemps, retryDelay = inputs.retryDelay;
+  core.debug(`retryMaxAttempts: ${retryMaxAttempts}, retryDelay: ${retryDelay}`);
   let retryAttempt = 0;
   do {
     retryAttempt++
@@ -298,11 +299,12 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
  * @returns the current deployment or undefined
  */
 export async function getCurrentDeployment(
-    octokit: InstanceType<typeof GitHub>
+    octokit: InstanceType<typeof GitHub>,
+    inputs: GitHubInputs
 ): Promise<typeof currentDeploymentObject | undefined> {
   if (_currentDeployment) return _currentDeployment
 
-  const currentJob = await getCurrentJob(octokit)
+  const currentJob = await getCurrentJob(octokit, inputs)
 
   // --- get deployments for current sha
   const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({

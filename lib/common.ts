@@ -9,6 +9,12 @@ export const LiteralSchema: z.ZodType<JsonLiteral> = z.union([z.string(), z.numb
 export const JsonSchema: z.ZodType<Json> = z.lazy(() => z.union([LiteralSchema, JsonObjectSchema, z.array(JsonSchema)]))
 export const JsonObjectSchema: z.ZodType<JsonObject> = z.record(JsonSchema)
 
+export type GitHubInputs = {
+  token: string
+  retryMaxAttemps: number
+  retryDelay: number
+}
+
 export const YamlParser = z.string().transform((str, ctx) => {
   try {
     return YAML.parse(str) as Json
