@@ -240,7 +240,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
 
   let currentJob: Awaited<ReturnType<typeof listJobsForCurrentWorkflowRun>>[number] | null = null;
   // retry to determine current job, because it takes some time until the job is available through the GitHub API
-  const retryMaxAttempts = 30, retryDelay = 1000;
+  const retryMaxAttempts = 120, retryDelay = 5000;
   let retryAttempt = 0;
   do {
     retryAttempt++
