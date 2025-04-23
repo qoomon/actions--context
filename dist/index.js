@@ -44874,7 +44874,7 @@ async function getCurrentJob(octokit) {
     const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
     let currentJob = null;
     // retry to determine current job, because it takes some time until the job is available through the GitHub API
-    const retryMaxAttempts = 30, retryDelay = 1000;
+    const retryMaxAttempts = 100, retryDelay = 3000;
     let retryAttempt = 0;
     do {
         retryAttempt++;
