@@ -3,7 +3,7 @@ import {InputOptions} from '@actions/core'
 import {GitHub} from "@actions/github/lib/utils";
 import {Context} from '@actions/github/lib/context';
 import {Deployment} from '@octokit/graphql-schema';
-import {z, ZodSchema} from 'zod'
+import {z, ZodType} from 'zod'
 import process from 'node:process';
 import {_throw, sleep} from './common.js';
 import YAML from "yaml";
@@ -72,7 +72,7 @@ export function getInput(
  * @param schema - input schema
  * @returns input value
  */
-export function getInput<T extends ZodSchema>(
+export function getInput<T extends ZodType>(
     name: string, options: core.InputOptions & { required: true }, schema: T
 ): z.infer<T>
 /**
@@ -83,7 +83,7 @@ export function getInput<T extends ZodSchema>(
  * @param schema - input schema
  * @returns input value
  */
-export function getInput<T extends ZodSchema>(
+export function getInput<T extends ZodType>(
     name: string, options: core.InputOptions, schema: T
 ): z.infer<T> | undefined
 /**
@@ -93,15 +93,15 @@ export function getInput<T extends ZodSchema>(
  * @param schema - input schema
  * @returns input value
  */
-export function getInput<T extends ZodSchema>(
+export function getInput<T extends ZodType>(
     name: string, schema: T
 ): z.infer<T> | undefined
-export function getInput<T extends ZodSchema>(
+export function getInput<T extends ZodType>(
     name: string, options_schema?: InputOptions | T, schema?: T
 ): string | z.infer<T> | undefined {
   let options: InputOptions | undefined
   // noinspection SuspiciousTypeOfGuard
-  if (options_schema instanceof ZodSchema) {
+  if (options_schema && '_zod' in options_schema ) {
     schema = options_schema
   } else {
     options = options_schema
@@ -115,7 +115,7 @@ export function getInput<T extends ZodSchema>(
   if (parseResult.error) {
     const initialIssue = parseResult.error.issues.at(0);
     if (initialIssue?.code === "invalid_type" &&
-        initialIssue.received === "string" &&
+        typeof initialIssue.input === "string" &&
         initialIssue.expected !== "string"
     ) {
       // try parse as yaml/json
@@ -205,11 +205,6 @@ class EnhancedContext extends Context {
         ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
   }
 
-  get runAttempt() {
-    return parseInt(process.env.GITHUB_RUN_ATTEMPT
-        ?? _throw(new Error('Missing environment variable: RUNNER_NAME')), 10);
-  }
-
   get runUrl() {
     return `${this.serverUrl}/${this.repository}` + `/actions/runs/${this.runId}` +
         (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
@@ -239,7 +234,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
   const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
 
   let currentJob: Awaited<ReturnType<typeof listJobsForCurrentWorkflowRun>>[number] | null = null;
-  // retry to determine current job, because it takes some time until the job is available through the GitHub API
+  // retry to determine the current job, because it takes some time until the job is available through the GitHub API
   const retryMaxAttempts = 100, retryDelay = 3000;
   let retryAttempt = 0;
   do {
@@ -250,7 +245,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promi
     core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' +
         JSON.stringify(currentWorkflowRunJobs, null, 2));
     const currentJobs = currentWorkflowRunJobs
-        .filter((job) => job.status === "in_progress" || job.status === "queued")
+        .filter((job) => job.status === "in_progress")
         .filter((job) => {
           // job.runner_group_id 0 represents the GitHub Actions hosted runners
           if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
@@ -400,7 +395,7 @@ export async function getCurrentDeployment(
 
 // --- Job State Management ---------------------------------------------------
 
-const JOB_STATE_FILE = `${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/_\d*$/, '')}`;
+const JOB_STATE_FILE = `${context.runnerTempDir ?? '/tmp'}/${context.action.replace(/_\d*$/, '')}.state.json`;
 
 export function addJobState<T>(obj: T) {
   fs.appendFileSync(JOB_STATE_FILE, JSON.stringify(obj) + '\n');
