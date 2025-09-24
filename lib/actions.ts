@@ -5,7 +5,7 @@ import {Context} from '@actions/github/lib/context';
 import {Deployment} from '@octokit/graphql-schema';
 import {z, ZodType} from 'zod'
 import process from 'node:process';
-import {_throw, sleep} from './common.js';
+import {_throw} from './common.js';
 import YAML from "yaml";
 import fs from "node:fs";
 
@@ -101,7 +101,7 @@ export function getInput<T extends ZodType>(
 ): string | z.infer<T> | undefined {
   let options: InputOptions | undefined
   // noinspection SuspiciousTypeOfGuard
-  if (options_schema && '_zod' in options_schema ) {
+  if (options_schema && '_zod' in options_schema) {
     schema = options_schema
   } else {
     options = options_schema
@@ -195,6 +195,13 @@ class EnhancedContext extends Context {
     return `${this.repo.owner}/${this.repo.repo}`;
   }
 
+  get jobCheckRunId() {
+    return parseInt(process.env.JOB_CHECK_RUN_ID
+        // WORKAROUND until https://github.com/actions/runner/pull/4053 is merged and released
+        ?? process.env.INPUT__JOB_CHECK_RUN_ID
+        ?? _throw(new Error('Missing environment variable: JOB_CHECK_RUN_ID')));
+  }
+
   get workflowRef() {
     return process.env.GITHUB_WORKFLOW_REF
         ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_REF'));
@@ -205,8 +212,8 @@ class EnhancedContext extends Context {
         ?? _throw(new Error('Missing environment variable: GITHUB_WORKFLOW_SHA'));
   }
 
-  get runUrl() {
-    return `${this.serverUrl}/${this.repository}` + `/actions/runs/${this.runId}` +
+  get runHtmlUrl() {
+    return process.env.GITHUB_RUN_HTML_URL ?? `${this.serverUrl}/${this.repository}` + `/actions/runs/${this.runId}` +
         (this.runAttempt ? `/attempts/${this.runAttempt}` : '');
   }
 
@@ -227,65 +234,20 @@ export const context = new EnhancedContext();
  * Get the current job from the workflow run
  * @returns the current job
  */
-export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promise<typeof currentJobObject> {
+export async function getCurrentJob(octokit: InstanceType<typeof GitHub>): Promise<typeof currentJob> {
   if (_currentJob) return _currentJob
 
-  const githubRunnerNameMatch = context.runnerName.match(/^GitHub-Actions-(?<id>\d+)$/)
-  const runnerNumber = githubRunnerNameMatch?.groups?.id ? parseInt(githubRunnerNameMatch.groups.id, 10) : null;
-
-  let currentJob: Awaited<ReturnType<typeof listJobsForCurrentWorkflowRun>>[number] | null = null;
-  // retry to determine the current job, because it takes some time until the job is available through the GitHub API
-  const retryMaxAttempts = 100, retryDelay = 3000;
-  let retryAttempt = 0;
-  do {
-    retryAttempt++
-    if (retryAttempt > 1) await sleep(retryDelay);
-    core.debug(`Try to determine current job, attempt ${retryAttempt}/${retryMaxAttempts}`)
-    const currentWorkflowRunJobs = await listJobsForCurrentWorkflowRun();
-    core.debug(`runner_name: ${context.runnerName}\n` + 'workflow_run_jobs:' +
-        JSON.stringify(currentWorkflowRunJobs, null, 2));
-    const currentJobs = currentWorkflowRunJobs
-        .filter((job) => job.status === "in_progress")
-        .filter((job) => {
-          // job.runner_group_id 0 represents the GitHub Actions hosted runners
-          if (job.runner_group_id === 0 && job.runner_name === "GitHub Actions") {
-            return job.runner_id === runnerNumber;
-          }
-          return job.runner_name === context.runnerName;
-        });
-    if (currentJobs.length === 1) {
-      currentJob = currentJobs[0];
-      core.debug('job:' + JSON.stringify(currentJob, null, 2));
-    } else {
-      if (currentJobs.length === 0) {
-        core.debug('No matching job found in workflow run.')
-      } else {
-        core.debug('Multiple matching jobs found in workflow run.')
-      }
+  const currentJob = await octokit.rest.actions.getJobForWorkflowRun({
+    ...context.repo,
+    job_id: context.jobCheckRunId,
+  }).catch((error) => {
+    if (error.status === 403) {
+      throwPermissionError({scope: 'actions', permission: 'read'}, error)
     }
-  } while (!currentJob && retryAttempt < retryMaxAttempts);
+    throw error
+  }).then((res) => res.data)
 
-  if (!currentJob) {
-    throw new Error(`Current job could not be determined.`);
-  }
-
-  const currentJobObject = {
-    ...currentJob,
-  }
-  return _currentJob = currentJobObject;
-
-  async function listJobsForCurrentWorkflowRun() {
-    return octokit.paginate(octokit.rest.actions.listJobsForWorkflowRunAttempt, {
-      ...context.repo,
-      run_id: context.runId,
-      attempt_number: context.runAttempt,
-    }).catch((error) => {
-      if (error.status === 403) {
-        throwPermissionError({scope: 'actions', permission: 'read'}, error)
-      }
-      throw error;
-    });
-  }
+  return _currentJob = currentJob
 }
 
 /**
@@ -296,8 +258,6 @@ export async function getCurrentDeployment(
     octokit: InstanceType<typeof GitHub>
 ): Promise<typeof currentDeploymentObject | undefined> {
   if (_currentDeployment) return _currentDeployment
-
-  const currentJob = await getCurrentJob(octokit)
 
   // --- get deployments for current sha
   const potentialDeploymentsFromRestApi = await octokit.rest.repos.listDeployments({
@@ -351,7 +311,7 @@ export async function getCurrentDeployment(
     return pathnameMatch &&
         pathnameMatch.groups?.repository === `${context.repo.owner}/${context.repo.repo}` &&
         pathnameMatch.groups?.run_id === context.runId.toString() &&
-        pathnameMatch.groups?.job_id === currentJob.id.toString()
+        pathnameMatch.groups?.job_id === context.jobCheckRunId.toString()
   })
 
   if (!currentDeployment) return undefined

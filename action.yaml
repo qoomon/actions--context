@@ -11,31 +11,37 @@ inputs:
     required: true
     default: '${{ github.token }}'
 
-outputs:
-  job_name:
-    description: The workflow run job name of the current job.
-  job_id:
-    description: The workflow run job id of the current job.
-  job_url:
-    description: The workflow run jub HTML url of the current job.
+  # WORKAROUND until GitHub provides job.check_run_id as environment variable
+  # see https://github.com/actions/runner/pull/4053
+  _job_check_run_id:
+    description: '(Internal) The check run id of the current job'
+    default: ${{ job.check_run_id }}
 
+outputs:
   run_id:
     description: The workflow run id of the current job.
   run_attempt:
     description: The workflow run attempt of the current job.
   run_number:
     description: The workflow run number of the current job.
-  run_url:
+  run_html_url:
     description: The workflow run HTML url of the current job.
+
+  job_name:
+    description: The workflow run job name of the current job.
+  job_check_run_id:
+    description: The workflow run job check run id of the current job.
+  job_html_url:
+    description: The workflow run jub HTML url of the current job.
 
   environment:
     description: The job environment of the current job.
-  environment_url:
+  environment_html_url:
     description: The job environment HTML url of the current job.
 
   deployment_id:
     description: The deployment id of the current job.
-  deployment_url:
+  deployment_html_url:
     description: The deployment HTML url of the current job.
 
   runner_name:

@@ -17,27 +17,41 @@ export const action = run(async () => {
   // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
   await sleep(2000)
 
+  // --- run information
+
+  core.setOutput('run_id', context.runId)
+  core.setOutput('run_attempt', context.runAttempt)
+  core.setOutput('run_number', context.runNumber)
+  const runHtmlUrl = context.runHtmlUrl
+  core.setOutput('run_html_url', runHtmlUrl)
+  core.exportVariable('GITHUB_RUN_HTML_URL', runHtmlUrl)
+
   await getCurrentJob(octokit).then((job) => {
-    if(core.isDebug()){
+    if (core.isDebug()) {
       core.debug(JSON.stringify(job));
     }
 
-    core.setOutput('run_id', job.run_id)
-    core.setOutput('run_attempt', job.run_attempt)
-    core.setOutput('run_number', context.runNumber)
-    core.setOutput('run_url', context.runUrl)
-    core.exportVariable('GITHUB_RUN_URL', job.runner_id ?? '')
+    // --- runner information
 
     core.setOutput('runner_name', context.runnerName)
-    core.setOutput('runner_id', job.runner_id ?? '')
-    core.exportVariable('RUNNER_ID', job.runner_id ?? '')
 
-    core.setOutput('job_name', job.name)
-    core.exportVariable('GITHUB_JOB_NAME', job.name ?? '')
-    core.setOutput('job_id', job.id)
-    core.exportVariable('GITHUB_JOB_ID', job.id)
-    core.setOutput('job_url', job.html_url ?? '')
-    core.exportVariable('GITHUB_JOB_URL', job.html_url ?? '')
+    const runnerId = process.env.RUNNER_ID ?? job.runner_id
+    core.setOutput('runner_id', runnerId)
+    core.exportVariable('RUNNER_ID', runnerId)
+
+    // --- job information
+
+    const jobName = process.env.GITHUB_JOB_NAME ?? job.name
+    core.setOutput('job_name', jobName)
+    core.exportVariable('GITHUB_JOB_NAME', jobName)
+
+    const jobCheckRunId = process.env.GITHUB_JOB_CHECK_RUN_ID ?? job.id
+    core.setOutput('job_check_run_id', jobCheckRunId)
+    core.exportVariable('GITHUB_JOB_CHECK_RUN_ID', jobCheckRunId)
+
+    const jobHtmlUrl = process.env.GITHUB_JOB_HTML_URL ?? job.html_url ?? ''
+    core.setOutput('job_url', jobHtmlUrl)
+    core.exportVariable('GITHUB_JOB_HTML_URL', jobHtmlUrl)
   });
 
   await getCurrentDeployment(octokit).catch((error) => {
@@ -49,19 +63,29 @@ export const action = run(async () => {
     throw error
   }).then((deployment) => {
     if (deployment) {
-      if(core.isDebug()){
+      if (core.isDebug()) {
         core.debug(JSON.stringify(deployment));
       }
 
-      core.setOutput('environment', deployment.environment)
-      core.exportVariable('GITHUB_ENVIRONMENT', deployment.environment)
-      core.setOutput('environment_url', deployment.environmentUrl)
-      core.exportVariable('GITHUB_ENVIRONMENT_URL', deployment.environmentUrl)
+      // --- environment information
 
-      core.setOutput('deployment_id', deployment.id)
-      core.exportVariable('GITHUB_DEPLOYMENT_ID', deployment.id)
-      core.setOutput('deployment_url', deployment.url)
-      core.exportVariable('GITHUB_DEPLOYMENT_URL', deployment.url)
+      const environment = process.env.GITHUB_ENVIRONMENT ?? deployment.environment
+      core.setOutput('environment', environment)
+      core.exportVariable('GITHUB_ENVIRONMENT', environment)
+
+      const environmentHtmlUrl = process.env.GITHUB_ENVIRONMENT_HTML_URL ?? deployment.environmentUrl ?? ''
+      core.setOutput('environment_html_url', environmentHtmlUrl)
+      core.exportVariable('GITHUB_ENVIRONMENT_HTML_URL', environmentHtmlUrl)
+
+      // --- deployment information
+
+      const deploymentId = process.env.GITHUB_DEPLOYMENT_ID ?? deployment.id
+      core.setOutput('deployment_id', deploymentId)
+      core.exportVariable('GITHUB_DEPLOYMENT_ID', deploymentId)
+
+      const deploymentHtmlUrl = process.env.GITHUB_DEPLOYMENT_HTML_URL ?? deployment.url
+      core.setOutput('deployment_html_url', deploymentHtmlUrl)
+      core.exportVariable('GITHUB_DEPLOYMENT_HTML_URL', deploymentHtmlUrl)
     }
   })
 })
