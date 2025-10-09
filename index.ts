@@ -50,7 +50,7 @@ export const action = run(async () => {
     core.exportVariable('GITHUB_JOB_CHECK_RUN_ID', jobCheckRunId)
 
     const jobHtmlUrl = process.env.GITHUB_JOB_HTML_URL ?? job.html_url ?? ''
-    core.setOutput('job_url', jobHtmlUrl)
+    core.setOutput('job_html_url', jobHtmlUrl)
     core.exportVariable('GITHUB_JOB_HTML_URL', jobHtmlUrl)
   });
 
