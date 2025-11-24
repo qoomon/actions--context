@@ -11,7 +11,7 @@
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.1",
     "yaml": "^2.8.0",
-    "zod": "^4.1.11"
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.0",
