@@ -10,7 +10,7 @@ jobs:
     name: build name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
         id: context
@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
 
@@ -34,7 +34,7 @@ jobs:
       matrix:
         node-version: [22.x, 20.x]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
 
@@ -45,7 +45,7 @@ jobs:
         os: [ ubuntu-16.04, ubuntu-latest ]
         compiler: [ { cpp: g++, c: gcc }, { cpp: g++-8, c: gcc-8 } ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
 
@@ -55,7 +55,7 @@ jobs:
       matrix:
         compiler: [ [g++, gcc ], [g++-8, gcc-8 ] ]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
 

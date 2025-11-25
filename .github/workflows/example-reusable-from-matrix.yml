@@ -19,6 +19,6 @@ jobs:
     steps:
       - run: env | grep GITHUB_
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./
