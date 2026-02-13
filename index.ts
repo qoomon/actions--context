@@ -12,7 +12,9 @@ export const action = run(async () => {
     token: getInput('token', {required: true}),
   }
 
-  const octokit = github.getOctokit(inputs.token);
+  const octokit = github.getOctokit(inputs.token, {
+    baseUrl: process.env.GITHUB_SERVER_URL || 'https://github.com',
+  });
 
   // --- due to some eventual consistency issues with the GitHub API, we need to take a sort break
   await sleep(2000)
