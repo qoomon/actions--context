@@ -6,6 +6,10 @@ import * as process from 'node:process'
 import {sleep} from "./lib/common.js";
 import * as github from "@actions/github";
 
+if(!process.env.GITHUB_API_URL && process.env.GITHUB_SERVER_URL) {
+  process.env.GITHUB_API_URL = `${process.env.GITHUB_SERVER_URL.replace(/\/$/, '')}/api/v3`
+}
+
 export const action = run(async () => {
 
   const inputs = {
