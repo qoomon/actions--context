@@ -44,10 +44,11 @@ export async function getCurrentJobByRunner(
  */
 export async function getCurrentJob(octokit: InstanceType<typeof GitHub>, context: EnhancedContext
 ) : Promise<Job | undefined>{
+  // Return cached job if available
   if (_currentJob != undefined) return _currentJob
 
+  // For GitHub Enterprise we need a workaround
   if (context.isGithubEnterprise) {
-    // For GitHub Enterprise we need a workaround
     core.warning(
       'Running in GitHub Enterprise environment, we currently need to use a workaround until ' +
       'this functionality is natively supported: https://github.blog/changelog/2025-11-13-github-actions-oidc-token-claims-now-include-check_run_id/'
@@ -56,6 +57,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>, contex
     return _currentJob = currentJob
   }
 
+  // For GitHub.com we can directly get the job by using the check_run_id
   const currentJob = await octokit.rest.actions.getJobForWorkflowRun({
     ...context.repo,
     job_id: context.jobCheckRunId,
