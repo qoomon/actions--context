@@ -4,21 +4,22 @@ import { EnhancedContext } from "./common";
 import * as core from '@actions/core'
 import type { RestEndpointMethodTypes } from "@octokit/plugin-rest-endpoint-methods";
 
+// type alias for job object returned by octokit.rest.actions.getJobForWorkflowRun
 type Job = RestEndpointMethodTypes["actions"]["getJobForWorkflowRun"]["response"]["data"];
 
 // cache of getCurrentJob result
 let _currentJob: Job | undefined = undefined
 
 /**
- * Get the job name for the current runner from the workflow run using Octokit REST API.
+ * Get the job for the current runner from the workflow run using Octokit REST API.
  * Equivalent to:
  *   jobs=`curl .../actions/runs/${run_id}/jobs`
- *   job_name=$(echo $jobs | jq -r '.jobs[] | select(.runner_name=="${{ runner.name }}") | .name')
+ *   job=$(echo $jobs | jq -r '.jobs[] | select(.runner_name=="${{ runner.name }}")')
  * @param octokit - An authenticated Octokit instance
  * @param context - The enhanced GitHub Actions context
- * @returns The job name for the current runner, or undefined if not found
+ * @returns The job for the current runner, or undefined if not found
  */
-export async function getCurrentJobNameByRunner(
+export async function getCurrentJobByRunner(
   octokit: InstanceType<typeof GitHub>,
   context: EnhancedContext
 ): Promise<Job | undefined> {
@@ -51,7 +52,7 @@ export async function getCurrentJob(octokit: InstanceType<typeof GitHub>, contex
       'Running in GitHub Enterprise environment, we currently need to use a workaround until ' +
       'this functionality is natively supported: https://github.blog/changelog/2025-11-13-github-actions-oidc-token-claims-now-include-check_run_id/'
     )
-    const currentJob = await getCurrentJobNameByRunner(octokit, context)
+    const currentJob = await getCurrentJobByRunner(octokit, context)
     return _currentJob = currentJob
   }
 
