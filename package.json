@@ -19,7 +19,7 @@
     "@octokit/graphql-schema": "^15.26.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
-    "@typescript-eslint/eslint-plugin": "^8.53.1",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "@vercel/ncc": "^0.38.3",
     "eslint": "^9.39.2",
