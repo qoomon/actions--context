@@ -1,10 +1,15 @@
 import * as core from '@actions/core'
-import {context, getCurrentDeployment, getCurrentJob, getInput, PermissionError, run} from './lib/actions.js'
+import {context, getCurrentDeployment, getInput, PermissionError, run} from './lib/actions.js'
+import { getCurrentJob } from 'lib/jobs.js'
 // see https://github.com/actions/toolkit for more GitHub actions libraries
 import {fileURLToPath} from 'url'
 import * as process from 'node:process'
 import {sleep} from "./lib/common.js";
 import * as github from "@actions/github";
+
+if(!process.env.GITHUB_API_URL && process.env.GITHUB_SERVER_URL) {
+  process.env.GITHUB_API_URL = `${process.env.GITHUB_SERVER_URL.replace(/\/$/, '')}/api/v3`
+}
 
 export const action = run(async () => {
 
@@ -26,7 +31,12 @@ export const action = run(async () => {
   core.setOutput('run_html_url', runHtmlUrl)
   core.exportVariable('GITHUB_RUN_HTML_URL', runHtmlUrl)
 
-  await getCurrentJob(octokit).then((job) => {
+  await getCurrentJob(octokit, context).then((job) => {
+    if (job === undefined) {
+      core.warning('Current job not found for runner: ' + context.runnerName)
+      return null
+    }
+
     if (core.isDebug()) {
       core.debug(JSON.stringify(job));
     }
