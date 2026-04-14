@@ -1,7 +1,7 @@
 import * as core from '@actions/core'
 import {InputOptions} from '@actions/core'
 import {GitHub} from "@actions/github/lib/utils";
-import {Context} from '@actions/github/lib/context';
+import {context as githubContext} from '@actions/github'
 import {Deployment} from '@octokit/graphql-schema';
 import {z, ZodType} from 'zod'
 import process from 'node:process';
@@ -189,7 +189,7 @@ export class PermissionError extends Error {
 
 // --- Enhanced GitHub Action Context --------------------------------------------------
 
-class EnhancedContext extends Context {
+class EnhancedContext extends (githubContext.constructor as new () => typeof githubContext) {
 
   get repository() {
     return `${this.repo.owner}/${this.repo.repo}`;
