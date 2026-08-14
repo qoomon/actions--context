@@ -52,6 +52,23 @@ export const action = run(async () => {
     const jobHtmlUrl = process.env.GITHUB_JOB_HTML_URL ?? job.html_url ?? ''
     core.setOutput('job_html_url', jobHtmlUrl)
     core.exportVariable('GITHUB_JOB_HTML_URL', jobHtmlUrl)
+  }).catch((error: unknown) => {
+    // On a jobs-API failure, derive what we can from the run context (notably
+    // job_html_url) instead of failing the action; job_name/runner_id need the API.
+    core.warning('Could not fetch the current job from the GitHub API; deriving job' +
+        ' context from the run context (job_name and runner_id will be missing). ' +
+        (error instanceof Error ? error.message : String(error)))
+
+    core.setOutput('runner_name', context.runnerName)
+
+    const jobCheckRunId = context.jobCheckRunId
+    core.setOutput('job_check_run_id', jobCheckRunId)
+    core.exportVariable('GITHUB_JOB_CHECK_RUN_ID', jobCheckRunId)
+
+    const jobHtmlUrl = process.env.GITHUB_JOB_HTML_URL ??
+        `${context.serverUrl}/${context.repository}/actions/runs/${context.runId}/job/${jobCheckRunId}`
+    core.setOutput('job_html_url', jobHtmlUrl)
+    core.exportVariable('GITHUB_JOB_HTML_URL', jobHtmlUrl)
   });
 
   await getCurrentDeployment(octokit).catch((error) => {
